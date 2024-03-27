@@ -47,16 +47,80 @@ def query_routes(source_iata, destination_iata):
     result = pd.read_sql(query, engine)
     return result
 
+def query_airline_routes(airline_name):
+    """
+    Query available routes for a specific airline.
+    """
+    query = f"""
+        SELECT al.airlinename AS Airline, a1.iata AS SourceIATA, a2.iata AS DestinationIATA
+        FROM hasroutes hr
+        JOIN airports a1 ON hr.source_airport_id = a1.airport_id
+        JOIN airports a2 ON hr.destination_airport_id = a2.airport_id
+        JOIN airline al ON hr.airlineID = al.airlineID
+        WHERE al.airlinename = '{airline_name}';
+    """
+    result = pd.read_sql(query, engine)
+    return result
+
+def query_airports_by_country(country_name):
+    """
+    Query available airports and airlines flying between them in a specific country.
+    """
+    query = f"""
+        SELECT a1.iata AS SourceIATA, a2.iata AS DestinationIATA, al.airlinename AS Airline
+        FROM hasroutes hr
+        JOIN airports a1 ON hr.source_airport_id = a1.airport_id
+        JOIN airports a2 ON hr.destination_airport_id = a2.airport_id
+        JOIN cities c1 ON a1.city_id = c1.city_id
+        JOIN cities c2 ON a2.city_id = c2.city_id
+        JOIN airline al ON hr.airlineID = al.airlineID
+        WHERE c1.country = '{country_name}' AND c2.country = '{country_name}';
+    """
+    result = pd.read_sql(query, engine)
+    return result
+
 def main():
     print("Welcome to the Flight Query CLI!")
-    source_iata = input("Enter the source airport IATA code: ")
-    destination_iata = input("Enter the destination airport IATA code: ")
-    routes = query_routes(source_iata, destination_iata)
-    if not routes.empty:
-        print("Available routes:")
-        print(routes)
-    else:
-        print("No routes found from", source_iata, "to", destination_iata)
+
+    while True:
+        print("\nPlease choose an option:")
+        print("1. Search by airports")
+        print("2. Search by airline")
+        print("3. Search by country")
+        print("4. Exit")
+
+        choice = input("Enter your choice (1, 2, 3, or 4): ")
+
+        if choice == '1':
+            source_iata = input("Enter the source airport IATA code: ")
+            destination_iata = input("Enter the destination airport IATA code: ")
+            routes = query_routes(source_iata, destination_iata)
+            if not routes.empty:
+                print("Available routes:")
+                print(routes)
+            else:
+                print("No routes found from", source_iata, "to", destination_iata)
+        elif choice == '2':
+            airline_name = input("Enter the airline name: ")
+            routes = query_airline_routes(airline_name)
+            if not routes.empty:
+                print(f"Available routes for {airline_name}:")
+                print(routes)
+            else:
+                print(f"No routes found for {airline_name}")
+        elif choice == '3':
+            country_name = input("Enter the country name: ")
+            routes = query_airports_by_country(country_name)
+            if not routes.empty:
+                print(f"Available airports and routes in {country_name}:")
+                print(routes)
+            else:
+                print(f"No routes found within {country_name}")
+        elif choice == '4':
+            print("Goodbye!")
+            break
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
 if __name__ == "__main__":
     main()
