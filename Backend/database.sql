@@ -195,7 +195,7 @@ CREATE TABLE pricing (
 
 DELIMITER $$
 
-CREATE TRIGGER check_iata_before_insert 
+CREATE TRIGGER check_iata_before_insert
 BEFORE INSERT ON airline
 FOR EACH ROW
 BEGIN
