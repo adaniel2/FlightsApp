@@ -158,6 +158,39 @@ CREATE TABLE belongsTo (
    FOREIGN KEY (name) REFERENCES airplanes (airplane_name) ON DELETE CASCADE
 );
 
+-- Schedule and Pricing tables
+CREATE TABLE schedule (
+  schedule_id INT AUTO_INCREMENT,
+  airlineID INT,
+  source_airport_id INT,
+  destination_airport_id INT,
+  flight_date_time DATETIME,
+  segments_departure_time_raw DATETIME,
+  segments_arrival_time_raw DATETIME,
+  segments_duration_in_seconds INT,
+  segments_equipment_description VARCHAR(255),
+  is_non_stop TINYINT(1),
+
+  PRIMARY KEY (airlineID, source_airport_id, destination_airport_id, flight_date_time),
+  FOREIGN KEY (airlineID) REFERENCES airline (airlineID),
+  FOREIGN KEY (source_airport_id) REFERENCES airports (airport_id),
+  FOREIGN KEY (destination_airport_id) REFERENCES airports (airport_id)
+);
+
+CREATE TABLE pricing (
+  pricing_id INT AUTO_INCREMENT,
+  airlineID INT,
+  source_airport_id INT,
+  destination_airport_id INT,
+  flying_class VARCHAR(50),
+  base_fare FLOAT,
+
+  PRIMARY KEY (airlineID, source_airport_id, destination_airport_id, flying_class),
+  FOREIGN KEY (airlineID) REFERENCES airline (airlineID),
+  FOREIGN KEY (source_airport_id) REFERENCES airports (airport_id),
+  FOREIGN KEY (destination_airport_id) REFERENCES airports (airport_id)
+);
+
 -- -------- TRIGGERS --------
 
 DELIMITER $$
