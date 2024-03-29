@@ -1,5 +1,5 @@
 -- Drop tables if they exist in reverse order of creation
-DROP TABLE IF EXISTS belongsTo, exists_in, cities, airports, flights, airplanes, connectingAirports, preferences, itineraries, hasroutes, loyaltyProgram, airline, users, temp_airports, temp_routes;
+DROP TABLE IF EXISTS belongsto, connectingairports, hasroutes, temp_routes, temp_airports, flights, pricing, schedule_legs, schedule, itineraries, preferences, loyaltyprogram, users, airplanes, cities, airports, airline;
 
 -- Users table
 CREATE TABLE users (
@@ -171,7 +171,8 @@ CREATE TABLE schedule (
   segments_equipment_description VARCHAR(255),
   is_non_stop TINYINT(1),
 
-  PRIMARY KEY (airlineID, source_airport_id, destination_airport_id, flight_date_time),
+  PRIMARY KEY (schedule_id),
+  UNIQUE (airlineID, source_airport_id, destination_airport_id, flight_date_time),
   FOREIGN KEY (airlineID) REFERENCES airline (airlineID),
   FOREIGN KEY (source_airport_id) REFERENCES airports (airport_id),
   FOREIGN KEY (destination_airport_id) REFERENCES airports (airport_id)
@@ -185,7 +186,8 @@ CREATE TABLE pricing (
   flying_class VARCHAR(50),
   base_fare FLOAT,
 
-  PRIMARY KEY (airlineID, source_airport_id, destination_airport_id, flying_class),
+  PRIMARY KEY (pricing_id),
+  UNIQUE (airlineID, source_airport_id, destination_airport_id, flying_class),
   FOREIGN KEY (airlineID) REFERENCES airline (airlineID),
   FOREIGN KEY (source_airport_id) REFERENCES airports (airport_id),
   FOREIGN KEY (destination_airport_id) REFERENCES airports (airport_id)
@@ -334,3 +336,43 @@ WHERE t.airlineID IS NOT NULL
   AND t.destinationAirportID IS NOT NULL
   AND EXISTS (SELECT 1 FROM airports a WHERE a.airport_id = t.sourceAirportID)
   AND EXISTS (SELECT 1 FROM airports a WHERE a.airport_id = t.destinationAirportID);
+
+-- LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/itineraries.csv'
+-- IGNORE INTO TABLE schedule
+-- FIELDS TERMINATED BY ',' ENCLOSED BY '"'
+-- LINES TERMINATED BY '\n'
+-- IGNORE 1 LINES
+-- (
+--   @legId,
+--   @searchDate,
+--   flight_date_time,
+--   @startingAirport,
+--   @destinationAirport,
+--   @fareBasisCode,
+--   @travelDuration,
+--   @elapsedDays,
+--   @isBasicEconomy,
+--   @isRefundable,
+--   @is_non_stop,
+--   @baseFare,
+--   @totalFare,
+--   @seatsRemaining,
+--   @totalTravelDistance,
+--   @segmentsDepartureTimeEpochSeconds,
+--   @segmentsDepartureTimeRaw,
+--   @segmentsArrivalTimeEpochSeconds,
+--   @segmentsArrivalTimeRaw,
+--   @segmentsArrivalAirportCode,
+--   @segmentsDepartureAirportCode,
+--   @segmentsAirlineName,
+--   @segmentsAirlineCode,
+--   @segmentsEquipmentDescription,
+--   @segmentsDurationInSeconds,
+--   @segmentsDistance,
+--   @segmentsCabinCode
+-- )
+-- SET
+--   airlineID = (SELECT airlineID FROM airline WHERE iata = @segmentsAirlineCode),
+--   source_airport_id = (SELECT airport_id FROM airports WHERE iata = @startingAirport),
+--   destination_airport_id = (SELECT airport_id FROM airports WHERE iata = @destinationAirport),
+--   is_non_stop = CASE WHEN @isNonStop = 'True' THEN 1 WHEN @isNonStop = 'False' THEN 0 END;
