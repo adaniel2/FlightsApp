@@ -330,7 +330,7 @@ WHERE t.airlineID IS NOT NULL
   AND EXISTS (SELECT 1 FROM airports a WHERE a.airport_id = t.destinationAirportID);
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/itineraries.csv'
-INTO TABLE schedule
+IGNORE INTO TABLE schedule
 FIELDS TERMINATED BY ',' ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n'
 IGNORE 1 LINES
