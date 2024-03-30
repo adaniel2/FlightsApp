@@ -80,6 +80,8 @@ CREATE TABLE airports (
   FOREIGN KEY (city_id) REFERENCES cities (city_id) ON DELETE CASCADE
 );
 
+CREATE INDEX idx_airports_iata ON airports(iata);
+
 -- Flights table
 CREATE TABLE flights (
   flight_id int,
@@ -161,8 +163,8 @@ CREATE TABLE belongsTo (
 CREATE TABLE schedule (
   legId VARCHAR(255),
   flightDate DATE,
-  startingAirport int,
-  destinationAirport int,
+  startingAirport VARCHAR(5),
+  destinationAirport VARCHAR(5),
   travelDuration VARCHAR(255),
   elapsedDays VARCHAR(50),
   isBasicEconomy VARCHAR(255),
@@ -181,8 +183,8 @@ CREATE TABLE schedule (
   segmentsCabinCode VARCHAR(255),
 
   PRIMARY KEY (legId),
-  FOREIGN KEY (startingAirport) REFERENCES airports (airport_id),
-  FOREIGN KEY (destinationAirport) REFERENCES airports (airport_id)
+  FOREIGN KEY (startingAirport) REFERENCES airports (iata),
+  FOREIGN KEY (destinationAirport) REFERENCES airports (iata)
 );
 
 -- -------- TRIGGERS --------
@@ -261,7 +263,7 @@ IGNORE 1 LINES
 
 -- Create a temporary table to hold all data from CSV
 CREATE TABLE temp_airports (
-  airport_id int,
+	airport_id int,
     airportName VARCHAR(255),
     cityName VARCHAR(255),
     country VARCHAR(255),
@@ -329,7 +331,7 @@ WHERE t.airlineID IS NOT NULL
   AND EXISTS (SELECT 1 FROM airports a WHERE a.airport_id = t.sourceAirportID)
   AND EXISTS (SELECT 1 FROM airports a WHERE a.airport_id = t.destinationAirportID);
 
-LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/itineraries.csv'
+LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/itineraries_small.csv'
 IGNORE INTO TABLE schedule
 FIELDS TERMINATED BY ',' ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n'
@@ -338,8 +340,8 @@ IGNORE 1 LINES
   legId,
   @searchDate,
   @flightDate,
-  @startingAirport,
-  @destinationAirport,
+  startingAirport,
+  destinationAirport,
   @fareBasisCode,
   travelDuration,
   elapsedDays,
@@ -369,7 +371,4 @@ SET
                   WHEN @flightDate LIKE '%-%-%' THEN STR_TO_DATE(@flightDate, '%Y-%m-%d')
                   ELSE NULL
                 END,
-  startingAirport = (SELECT airport_id FROM airports WHERE iata = @startingAirport),
-  destinationAirport = (SELECT airport_id FROM airports WHERE iata = @destinationAirport),
   isNonStop = CASE WHEN @isNonStop = 'TRUE' THEN 1 ELSE 0 END;
-  
