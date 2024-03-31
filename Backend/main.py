@@ -44,19 +44,19 @@ def query_airline_routes(airline_name):
     result = pd.read_sql(query, engine)
     return result
 
-def query_airports_by_country(country_name):
+def query_routes_by_countries(source_country, destination_country):
     """
-    Query available airports and airlines flying between them in a specific country.
+    Query available routes between source and destination countries.
     """
     query = f"""
-        SELECT a1.iata AS SourceIATA, a2.iata AS DestinationIATA, al.airlinename AS Airline
+        SELECT c1.country AS SourceCountry, c2.country AS DestinationCountry, a1.iata AS SourceIATA, a2.iata AS DestinationIATA, al.airlinename AS Airline
         FROM hasroutes hr
         JOIN airports a1 ON hr.source_airport_id = a1.airport_id
         JOIN airports a2 ON hr.destination_airport_id = a2.airport_id
         JOIN cities c1 ON a1.city_id = c1.city_id
         JOIN cities c2 ON a2.city_id = c2.city_id
         JOIN airline al ON hr.airlineID = al.airlineID
-        WHERE c1.country = '{country_name}' AND c2.country = '{country_name}';
+        WHERE c1.country = '{source_country}' AND c2.country = '{destination_country}';
     """
     result = pd.read_sql(query, engine)
     return result
@@ -69,9 +69,10 @@ def main():
         print("1. Search by airports")
         print("2. Search by airline")
         print("3. Search by country")
-        print("4. Exit")
+        print("4. Search by countries")
+        print("5. Exit")
 
-        choice = input("Enter your choice (1, 2, 3, or 4): ")
+        choice = input("Enter your choice (1, 2, 3, 4, or 5): ")
 
         if choice == '1':
             source_iata = input("Enter the source airport IATA code: ")
@@ -99,10 +100,19 @@ def main():
             else:
                 print(f"No routes found within {country_name}")
         elif choice == '4':
+            source_country = input("Enter the source country name: ")
+            destination_country = input("Enter the destination country name: ")
+            routes = query_routes_by_countries(source_country, destination_country)
+            if not routes.empty:
+                print(f"Available routes from {source_country} to {destination_country}:")
+                print(routes)
+            else:
+                print(f"No routes found from {source_country} to {destination_country}")
+        elif choice == '5':
             print("Goodbye!")
             break
         else:
-            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+            print("Invalid choice. Please enter a valid option.")
 
 if __name__ == "__main__":
     main()
