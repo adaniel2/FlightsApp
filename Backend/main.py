@@ -14,24 +14,6 @@ connection_string = f"mysql+pymysql://{db_username}:{db_password}@{db_host}:{db_
 # Create an engine to connect to the MySQL database
 engine = create_engine(connection_string)
 
-# -----------------------------------------------------------------------------------------------------
-
-import pandas as pd
-from sqlalchemy import create_engine
-
-# Define the connection parameters
-db_username = 'root'
-db_password = '!#%Sql981'
-db_host = 'localhost'
-db_port = '3306'
-db_name = 'flights'
-
-# Create a connection string
-connection_string = f"mysql+pymysql://{db_username}:{db_password}@{db_host}:{db_port}/{db_name}"
-
-# Create an engine to connect to the MySQL database
-engine = create_engine(connection_string)
-
 def query_routes(source_iata, destination_iata):
     """
     Query available routes from source to destination using IATA codes.
