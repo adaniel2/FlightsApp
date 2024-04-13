@@ -1,18 +1,18 @@
--- Drop tables if they exist in reverse order of creation
-DROP TABLE IF EXISTS belongsto, connectingairports, hasroutes, temp_routes, temp_airports, flights, pricing, schedule_legs, schedule, temp_itineraries, itineraries, preferences, loyaltyprogram, users, airplanes, cities, airports, airline;
+-- Drop tables if they exist
+DROP TABLE IF EXISTS belongsto, connectingairports, hasroutes, temp_routes, temp_airports, flights, pricing, schedule_legs, schedule, 
+temp_itineraries, itineraries, preferences, loyaltyprogram, users, airplanes, cities, airports, airline;
 
 -- Users table
 CREATE TABLE users (
   user_id int,
   fullName VARCHAR(255) NOT NULL,
-  phoneNumber VARCHAR(20),
+  phoneNumber VARCHAR(20), -- could allow multiple phone numbers; kept as 1 for project scope
   addressFirstLine VARCHAR(255),
   addressLastLine VARCHAR(255),
   addressPostcode VARCHAR(10),
   billingFirstLine VARCHAR(255),
   billingLastLine VARCHAR(255),
   billingPostcode VARCHAR(10),
-  loyaltyProgram int,
   birthDate DATE NOT NULL,
   gender CHAR(1) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
@@ -33,27 +33,22 @@ CREATE TABLE airline (
 
 -- Loyalty Program table
 CREATE TABLE loyaltyProgram(
-    programID int,
-    loyaltyNumber VARCHAR(20) NOT NULL,
+    user_id int,
+    loyaltyProgram VARCHAR(20) NOT NULL,
     loyaltyAirlineID int,
-    loyaltyPoints INT NOT NULL,
+    loyaltyPoints INT NOT NULL DEFAULT 100,
 
-    PRIMARY KEY (programID),
+    PRIMARY KEY (user_id, loyaltyProgram),
     FOREIGN KEY (loyaltyAirlineID) REFERENCES airline (airlineID)
 );
 
--- Update Users table to add foreign key for loyaltyProgram
-ALTER TABLE users ADD CONSTRAINT fk_loyaltyProgram FOREIGN KEY (loyaltyProgram) REFERENCES loyaltyProgram (programID);
-
 -- Airplanes table
 CREATE TABLE airplanes (
-  airplane_id INT AUTO_INCREMENT,
   airplane_name VARCHAR(255),
   iata VARCHAR(50),
   icao VARCHAR(50),
 
-  PRIMARY KEY (airplane_id),
-  INDEX idx_airplane_name (airplane_name)
+  PRIMARY KEY (airplane_name)
 );
 
 -- Cities table
@@ -81,62 +76,62 @@ CREATE TABLE airports (
 );
 
 CREATE INDEX idx_airports_iata ON airports(iata);
+CREATE INDEX idx_airports_airportName ON airports(airportName);
 
 -- Flights table
 CREATE TABLE flights (
   flight_id int,
-  airplane_id int,
+  airplane_name VARCHAR(255),
   flightTime TIME,
   arrivalTime TIME,
   departureTime TIME,
-  flyingClass VARCHAR(50),
-  airline int,
-  itinerary_id int,
 
   PRIMARY KEY (flight_id),
-  FOREIGN KEY (airplane_id) REFERENCES airplanes (airplane_id) ON DELETE SET NULL
-  -- FOREIGN KEY (itinerary_id) REFERENCES itineraries (itinerary_id) ON DELETE CASCADE -- Uncomment after creating itineraries table
+  FOREIGN KEY (airplane_name) REFERENCES airplanes (airplane_name) ON DELETE CASCADE
+);
+
+-- Itineraries table
+CREATE TABLE itineraries (
+  user_id int,
+  flight_id int,
+  flyingClass VARCHAR(50),
+  layoverTime TIME, -- for any itenerary, this should default to user preference
+  airlineID int,
+  PRIMARY KEY (user_id, flight_id),
+
+  FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+  FOREIGN KEY (flight_id) REFERENCES flights (flight_id) ON DELETE CASCADE,
+  FOREIGN KEY (airlineID) REFERENCES airline (airlineID) ON DELETE CASCADE
 );
 
 -- Preferences table
 CREATE TABLE preferences (
-  preference_id int,
+  preference_id int AUTO_INCREMENT, -- user can have multiple presets
+  user_id int,
   flyingClass VARCHAR(255),
   layoverTime TIME,
   departureTime TIME,
   arrivalTime TIME,
   duration INT,
   emission VARCHAR(255),
+  groundTransportation VARCHAR(255),
+  preferredHotelChain VARCHAR(255),
 
-  PRIMARY KEY (preference_id)
+  PRIMARY KEY (preference_id, user_id),
+  FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 );
-
--- Itineraries table
-CREATE TABLE itineraries (
-  itinerary_id int,
-  user_id int,
-  flight_id int,
-  preference_id int,
-  PRIMARY KEY (itinerary_id),
-
-  FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE SET NULL,
-  FOREIGN KEY (flight_id) REFERENCES flights (flight_id) ON DELETE SET NULL,
-  FOREIGN KEY (preference_id) REFERENCES preferences (preference_id) ON DELETE SET NULL
-);
-
--- Update Flights table to add foreign key for itineraries
-ALTER TABLE flights ADD CONSTRAINT fk_itinerary_id FOREIGN KEY (itinerary_id) REFERENCES itineraries (itinerary_id) ON DELETE CASCADE;
 
 -- ConnectingAirports table
 CREATE TABLE connectingAirports(
     preference_id int,
+    user_id int,
     connectingAirport int,
-    airport_id int,
     airportName VARCHAR(255),
 
-    PRIMARY KEY (preference_id, connectingAirport),
+    PRIMARY KEY (preference_id, user_id, connectingAirport),
     FOREIGN KEY (preference_id) REFERENCES preferences (preference_id) ON DELETE CASCADE,
-    FOREIGN KEY (connectingAirport) REFERENCES airports (airport_id) ON DELETE CASCADE
+    FOREIGN KEY (connectingAirport) REFERENCES airports (airport_id) ON DELETE CASCADE,
+    FOREIGN KEY (airportName) REFERENCES airports (airportName) ON DELETE CASCADE
 );
 
 -- HasRoutes table
@@ -154,10 +149,10 @@ CREATE TABLE hasroutes (
 -- BelongsTo table
 CREATE TABLE belongsTo (
    airlineID int,
-   name VARCHAR(30),
-   PRIMARY KEY (airlineID, name),
+   airplaneName VARCHAR(30),
+   PRIMARY KEY (airlineID, airplaneName),
    FOREIGN KEY (airlineID) REFERENCES airline (airlineID) ON DELETE CASCADE,
-   FOREIGN KEY (name) REFERENCES airplanes (airplane_name) ON DELETE CASCADE
+   FOREIGN KEY (airplaneName) REFERENCES airplanes (airplane_name) ON DELETE CASCADE
 );
 
 CREATE TABLE schedule (
