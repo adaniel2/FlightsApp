@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------
-from db import query_routes, query_airline_routes, query_routes_by_countries
+from db import query_routes, query_airline_routes, query_routes_by_countries, query_by_country
 
 def main():
     print("Welcome to the Flight Query CLI!")
@@ -33,7 +33,7 @@ def main():
                 print(f"No routes found for {airline_name}")
         elif choice == '3':
             country_name = input("Enter the country name: ")
-            routes = query_airports_by_country(country_name)
+            routes = query_by_country(country_name)
             if not routes.empty:
                 print(f"Available airports and routes in {country_name}:")
                 print(routes)

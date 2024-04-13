@@ -69,3 +69,25 @@ def query_routes_by_countries(source_country, destination_country):
     result = pd.read_sql(query, engine)
     return result
 
+def query_by_country(country_name):
+    """
+    Query all airports within a specific country and the routes they offer.
+    """
+    query = f"""
+        SELECT 
+            a1.airport_id AS SourceAirportID, 
+            a1.iata AS SourceIATA, 
+            a1.airportName AS SourceAirportName, 
+            c1.cityName AS SourceCityName, 
+            a2.iata AS DestinationIATA, 
+            a2.airportName AS DestinationAirportName,
+            c2.cityName AS DestinationCityName
+        FROM airports a1
+        JOIN cities c1 ON a1.city_id = c1.city_id
+        JOIN hasroutes hr ON a1.airport_id = hr.source_airport_id
+        JOIN airports a2 ON hr.destination_airport_id = a2.airport_id
+        JOIN cities c2 ON a2.city_id = c2.city_id
+        WHERE c1.country = '{country_name}';
+    """
+    result = pd.read_sql(query, engine)
+    return result

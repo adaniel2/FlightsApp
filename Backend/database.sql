@@ -267,11 +267,11 @@ IGNORE 1 LINES
 -- Create a temporary table to hold all data from CSV
 CREATE TABLE temp_airports (
 	airport_id int,
-    airportName VARCHAR(255),
-    cityName VARCHAR(255),
-    country VARCHAR(255),
-    iata VARCHAR(5),
-    icao VARCHAR(5)
+  airportName VARCHAR(255),
+  cityName VARCHAR(255),
+  country VARCHAR(255),
+  iata VARCHAR(5),
+  icao VARCHAR(5)
 );
 
 -- Load data into the temporary table
