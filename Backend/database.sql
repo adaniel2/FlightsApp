@@ -354,8 +354,8 @@ IGNORE 1 LINES
   @fareBasisCode,
   travelDuration,
   elapsedDays,
-  isBasicEconomy,
-  isRefundable,
+  @isBasicEconomy,
+  @isRefundable,
   @isNonStop,
   baseFare,
   totalFare,
@@ -380,4 +380,6 @@ SET
                   WHEN @flightDate LIKE '%-%-%' THEN STR_TO_DATE(@flightDate, '%Y-%m-%d')
                   ELSE NULL
                 END,
+  isBasicEconomy = CASE WHEN @isNonStop = 'TRUE' THEN 1 ELSE 0 END,              
+  isRefundable = CASE WHEN @isNonStop = 'TRUE' THEN 1 ELSE 0 END,
   isNonStop = CASE WHEN @isNonStop = 'TRUE' THEN 1 ELSE 0 END;
