@@ -1,6 +1,8 @@
+# Non-template
 Backend/.env
+*.code-workspace
 
-# https://github.com/github/gitignore/blob/main/Python.gitignore
+# Template: https://github.com/github/gitignore/blob/main/Python.gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
