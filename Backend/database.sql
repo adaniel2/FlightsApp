@@ -90,6 +90,14 @@ CREATE TABLE flights (
   FOREIGN KEY (airplane_name) REFERENCES airplanes (airplane_name) ON DELETE CASCADE
 );
 
+CREATE TABLE flightPassengers (
+  flight_id int,
+  user_id int,
+
+  FOREIGN KEY (flight_id) REFERENCES flights (flight_id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+);
+
 -- Itineraries table
 CREATE TABLE itineraries (
   user_id int,
