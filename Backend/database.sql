@@ -181,6 +181,7 @@ CREATE TABLE Schedule (
   baseFare FLOAT,
   totalFare FLOAT,
   seatsRemaining INT,
+
   -- Segment strings are long; maybe 128 is a safe bet
   segmentsDepartureTimeRaw VARCHAR(128),
   segmentsArrivalTimeRaw VARCHAR(128),
@@ -196,7 +197,7 @@ CREATE TABLE Schedule (
   FOREIGN KEY (destinationAirport) REFERENCES Airports (iata)
 );
 
--- -------- TRIGGERS --------
+-- ------------------ TRIGGERS ------------------------
 
 DELIMITER $$
 
@@ -222,7 +223,7 @@ END$$
 
 DELIMITER ;
 
--- --------------------- LOADING DATA ---------------------------------
+-- ----------------------- LOADING DATA ---------------------------------
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/airlines.csv'
 IGNORE INTO TABLE Airline
@@ -273,9 +274,9 @@ IGNORE 1 LINES
 -- Create a temporary table to hold all data from CSV
 CREATE TABLE TempAirports (
 	airportID int,
-  airportName VARCHAR(255),
-  cityName VARCHAR(255),
-  country VARCHAR(255),
+  airportName VARCHAR(100),
+  cityName VARCHAR(85),
+  country VARCHAR(64),
   iata VARCHAR(5),
   icao VARCHAR(5)
 );
@@ -300,15 +301,15 @@ DROP TABLE TempAirports;
 
 -- Create a temporary table to hold all data from CSV
 CREATE TABLE TempRoutes (
-  airline VARCHAR(255),
+  airlineName VARCHAR(100),
   airlineID INT,
-  sourceAirport VARCHAR(255),
+  sourceAirport VARCHAR(100),
   sourceAirportID INT,
-  destinationAirport VARCHAR(255),
+  destinationAirport VARCHAR(100),
   destinationAirportID INT,
-  codeshare VARCHAR(255),
+  codeShare VARCHAR(50),
   stops INT,
-  equipment VARCHAR(255)
+  equipment VARCHAR(100)
 );
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/routes.csv'
@@ -317,13 +318,13 @@ FIELDS TERMINATED BY ','
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 IGNORE 1 LINES
-(airline, 
+(airlineName,
  @airlineID, 
  sourceAirport, 
  @sourceAirportID, 
  destinationAirport, 
  @destinationAirportID, 
- codeshare, 
+ codeShare, 
  stops, 
  equipment)
 SET
