@@ -18,6 +18,7 @@ def main():
             source_iata = input("Enter the source airport IATA code: ")
             destination_iata = input("Enter the destination airport IATA code: ")
             routes = query_routes(source_iata, destination_iata)
+
             if not routes.empty:
                 print("Available routes:")
                 print(routes)
@@ -26,6 +27,7 @@ def main():
         elif choice == '2':
             airline_name = input("Enter the airline name: ")
             routes = query_airline_routes(airline_name)
+
             if not routes.empty:
                 print(f"Available routes for {airline_name}:")
                 print(routes)
@@ -34,6 +36,7 @@ def main():
         elif choice == '3':
             country_name = input("Enter the country name: ")
             routes = query_by_country(country_name)
+            
             if not routes.empty:
                 print(f"Available airports and routes in {country_name}:")
                 print(routes)

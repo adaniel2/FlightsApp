@@ -35,6 +35,7 @@ def query_routes(source_iata, destination_iata):
         WHERE a1.iata = '{source_iata}' AND a2.iata = '{destination_iata}';
     """
     result = pd.read_sql(query, engine)
+
     return result
 
 def query_airline_routes(airline_name):
@@ -50,6 +51,7 @@ def query_airline_routes(airline_name):
         WHERE al.airlineName = '{airline_name}';
     """
     result = pd.read_sql(query, engine)
+
     return result
 
 def query_routes_by_countries(source_country, destination_country):
@@ -67,6 +69,7 @@ def query_routes_by_countries(source_country, destination_country):
         WHERE c1.country = '{source_country}' AND c2.country = '{destination_country}';
     """
     result = pd.read_sql(query, engine)
+
     return result
 
 def query_by_country(country_name):
@@ -90,4 +93,5 @@ def query_by_country(country_name):
         WHERE c1.country = '{country_name}';
     """
     result = pd.read_sql(query, engine)
+    
     return result

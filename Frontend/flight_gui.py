@@ -85,6 +85,7 @@ search_button.pack(side='left', padx=(10, 10))
 # Treeview for displaying results
 columns = ('source', 'destination', 'airline')
 tree = ttk.Treeview(root, columns=columns, show='headings')
+
 for col in columns:
     tree.heading(col, text=col.capitalize())
     tree.column(col, width=120)
