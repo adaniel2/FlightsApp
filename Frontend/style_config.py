@@ -5,7 +5,7 @@ def configure_styles():
     style = ttk.Style()
     style.theme_use('clam')
 
-    # Configure the style of Heading Labels (if you have them)
+    # Configure style of Heading Labels
     style.configure('HeadingLabel', font=('Arial', 16), background='blue', foreground='white')
 
     # Treeview style

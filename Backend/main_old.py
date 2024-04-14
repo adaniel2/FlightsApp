@@ -43,6 +43,7 @@ def main():
             source_country = input("Enter the source country name: ")
             destination_country = input("Enter the destination country name: ")
             routes = query_routes_by_countries(source_country, destination_country)
+            
             if not routes.empty:
                 print(f"Available routes from {source_country} to {destination_country}:")
                 print(routes)
