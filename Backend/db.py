@@ -2,6 +2,8 @@ import os
 import pandas as pd
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
 # Load environment variables
 load_dotenv()
@@ -21,6 +23,26 @@ engine = create_engine(connection_string)
 
 # ------------------- Query functions -----------------------
 # -----------------------------------------------------------
+
+def create_user(user_data):
+    sql = text("""
+        INSERT INTO Users (
+            fullName, phoneNumber, addressFirstLine, addressLastLine, addressPostcode,
+            billingFirstLine, billingLastLine, billingPostcode, birthDate, gender, email
+        ) VALUES (
+            :fullName, :phoneNumber, :addressFirstLine, :addressLastLine, :addressPostcode,
+            :billingFirstLine, :billingLastLine, :billingPostcode, :birthDate, :gender, :email
+        )
+    """)
+
+    try:
+        with engine.begin() as connection:
+            # Pass user_data as 'params'
+            connection.execute(sql, user_data)
+        return True
+    except SQLAlchemyError as e:
+        print(f"An error occurred: {e}")
+        return False
 
 def query_routes(source_iata, destination_iata):
     """
