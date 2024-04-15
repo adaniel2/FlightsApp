@@ -3,6 +3,9 @@ from tkinter import ttk, messagebox
 import requests
 from style_config import configure_styles
 
+import sys
+sys.path.append('../Backend')  # Adds the Backend folder to the system path
+
 # Create the main window
 root = tk.Tk()
 root.title("Flights Planner")
@@ -11,7 +14,6 @@ configure_styles()  # Apply styles configured in style_config.py
 
 def update_input_fields(event=None):
     mode = search_mode_combobox.get()
-
     # Clear previous entries and labels
     for widget in input_frame.winfo_children():
         widget.pack_forget()
@@ -21,13 +23,8 @@ def update_input_fields(event=None):
     source_entry.pack(side='left', padx=(10, 0))
 
     if mode in ["airports", "countries"]:
-        if mode == "airports":
-            label1.config(text="Source IATA:")
-            label2.config(text="Destination IATA:")
-        elif mode == "countries":
-            label1.config(text="Source Country:")
-            label2.config(text="Destination Country:")
-        
+        label1.config(text="Source Country:" if mode == "countries" else "Source IATA:")
+        label2.config(text="Destination Country:" if mode == "countries" else "Destination IATA:")
         label2.pack(side='left', padx=(10, 0))
         destination_entry.pack(side='left', padx=(10, 0))
     elif mode == "airline":
@@ -38,19 +35,17 @@ def update_input_fields(event=None):
 def search_routes():
     search_mode = search_mode_combobox.get()
     source = source_entry.get().strip()
-    destination = destination_entry.get().strip()
+    destination = destination_entry.get().strip() if search_mode in ["airports", "countries"] else ''
 
-    url = f'http://127.0.0.1:5000/{search_mode.lower()}?'
-
+    url = f'http://127.0.0.1:5000/{search_mode.lower()}'
     if search_mode in ["airports", "countries"]:
-        url += f'source_iata={source}&destination_iata={destination}'
+        url += f'?source={source}&destination={destination}'
     elif search_mode == "airline":
-        url += f'airline_name={source}'
+        url += f'?airline_name={source}'
     elif search_mode == "country":
-        url += f'country_name={source}'
+        url += f'?source_country={source}'
 
     response = requests.get(url)
-    
     if response.status_code == 200:
         for i in tree.get_children():
             tree.delete(i)
@@ -59,36 +54,93 @@ def search_routes():
     else:
         messagebox.showinfo("Result", response.json().get('message', 'Error'))
 
-# Frame for input fields
+def create_user_window():
+    user_window = tk.Toplevel(root)
+    user_window.title("Create User")
+
+    labels = ['Full Name', 'Phone Number', 'Address Line 1', 'Address Line 2', 
+              'Postcode', 'Billing Address Line 1', 'Billing Address Line 2', 
+              'Billing Postcode', 'Birth Date', 'Gender', 'Email']
+    entries = {}
+    
+    for idx, label in enumerate(labels):
+        ttk.Label(user_window, text=label).grid(row=idx, column=0, padx=10, pady=5)
+        entry = ttk.Combobox(user_window, values=["M", "F", "NB"], state="readonly") if label == 'Gender' else ttk.Entry(user_window, width=25)
+        entry.grid(row=idx, column=1, padx=10, pady=5)
+        entries[label] = entry
+
+    ttk.Button(user_window, text="Submit", command=lambda: submit_user_data(entries)).grid(row=len(labels), column=0, columnspan=2, pady=10)
+
+def submit_user_data(entries):
+    user_data = {
+        'fullName': entries['Full Name'].get(),
+        'phoneNumber': entries['Phone Number'].get(),
+        'addressFirstLine': entries['Address Line 1'].get(),
+        'addressLastLine': entries['Address Line 2'].get(),
+        'addressPostcode': entries['Postcode'].get(),
+        'billingFirstLine': entries['Billing Address Line 1'].get(),
+        'billingLastLine': entries['Billing Address Line 2'].get(),
+        'billingPostcode': entries['Billing Postcode'].get(),
+        'birthDate': entries['Birth Date'].get(),
+        'gender': entries['Gender'].get(),
+        'email': entries['Email'].get(),
+    }
+
+    # Ensure all required fields are provided
+    for key, value in user_data.items():
+        if not value:
+            messagebox.showerror("Error", f"Please fill out the {key} field.")
+            return
+
+    # URL to the create_user route in your Flask app
+    url = 'http://127.0.0.1:5000/create_user'
+
+    # Make a POST request to the server
+    try:
+        response = requests.post(url, json=user_data)
+        if response.status_code == 201:
+            messagebox.showinfo("Success", "User created successfully!")
+        else:
+            # If response code is not 201, there was an error
+            messagebox.showerror("Error", f"Failed to create user: {response.json().get('message')}")
+    except requests.exceptions.RequestException as e:
+        # Handle any errors that occur during the request
+        messagebox.showerror("Error", f"Failed to create user: {e}")
+
+# Setup input and interface elements
 input_frame = ttk.Frame(root)
 input_frame.pack(side='left', fill='x', expand=True)
 
-# Labels and Entries
 label1 = ttk.Label(input_frame, text="Source IATA:")
 label2 = ttk.Label(input_frame, text="Destination IATA:")
 source_entry = ttk.Entry(input_frame, width=20)
 destination_entry = ttk.Entry(input_frame, width=20)
 
-# Combobox for selecting search mode
 search_mode_combobox = ttk.Combobox(root, values=["airports", "airline", "countries", "country"], state="readonly")
 search_mode_combobox.set("airports")
 search_mode_combobox.pack(side='left', padx=(10, 10))
 search_mode_combobox.bind('<<ComboboxSelected>>', update_input_fields)
 
-# Initial packing
-update_input_fields()
-
-# Search button
 search_button = ttk.Button(root, text="Search", command=search_routes)
 search_button.pack(side='left', padx=(10, 10))
 
-# Treeview for displaying results
 columns = ('source', 'destination', 'airline')
 tree = ttk.Treeview(root, columns=columns, show='headings')
-
 for col in columns:
     tree.heading(col, text=col.capitalize())
     tree.column(col, width=120)
 tree.pack(side='left', fill='both', expand=True)
+
+# Setup menus
+menu_bar = tk.Menu(root)
+root.config(menu=menu_bar)
+
+users_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Users", menu=users_menu)
+users_menu.add_command(label="Create User", command=create_user_window)
+
+preferences_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Preferences", menu=preferences_menu)
+preferences_menu.add_command(label="Settings", command=lambda: messagebox.showinfo("Preferences", "Settings"))
 
 root.mainloop()

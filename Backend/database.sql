@@ -4,7 +4,7 @@ Itineraries, Preferences, LoyaltyProgram, Users, Airplanes, Cities, Airports, Ai
 
 -- Users table
 CREATE TABLE Users (
-  userID int,
+  userID int AUTO_INCREMENT,
   fullName VARCHAR(128) NOT NULL, -- 128 characters seems more than reasonable for a full name
   phoneNumber VARCHAR(25), -- Could allow multiple phone numbers; kept as 1 for project scope
   addressFirstLine VARCHAR(64),
