@@ -1,16 +1,27 @@
 from flask import Flask, jsonify, request
-from db import query_routes, query_airline_routes, query_routes_by_countries, query_by_country, create_user
+from db import query_routes, query_airline_routes, query_routes_by_countries, query_by_country, create_user, add_preferences_to_db
 
 app = Flask(__name__)
 
 @app.route('/create_user', methods=['POST'])
 def create_user_route():
     user_data = request.json
-    
-    if create_user(user_data):
-        return jsonify({'message': 'User created successfully'}), 201
+    user_id = create_user(user_data)
+
+    if user_id:
+        return jsonify({'message': 'User created successfully', 'userID': user_id}), 201
     else:
         return jsonify({'message': 'Failed to create user'}), 400
+
+@app.route('/add_preferences', methods=['POST'])
+def add_preferences():
+    prefs_data = request.json
+    result = add_preferences_to_db(prefs_data)  # Implement this function in db.py to insert data into the database
+
+    if result:
+        return jsonify({'message': 'Preferences saved successfully'}), 201
+    else:
+        return jsonify({'message': 'Failed to save preferences'}), 400
 
 @app.route('/airports')
 def get_routes():

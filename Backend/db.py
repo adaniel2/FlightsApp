@@ -37,8 +37,29 @@ def create_user(user_data):
 
     try:
         with engine.begin() as connection:
-            # Pass user_data as 'params'
-            connection.execute(sql, user_data)
+            result = connection.execute(sql, user_data)
+            user_id = result.lastrowid
+            return user_id
+        return True
+    except SQLAlchemyError as e:
+        print(f"An error occurred: {e}")
+        return False
+
+def add_preferences_to_db(prefs_data):
+    sql = text("""
+        INSERT INTO Preferences (
+            userID, preferredFlyingClass, preferredLayoverTime, preferredDepartureTime, 
+            preferredArrivalTime, preferredDuration, preferLowEmission, 
+            preferredGroundTransportation, preferredHotelChain
+        ) VALUES (
+            :userID, :preferredFlyingClass, :preferredLayoverTime, :preferredDepartureTime, 
+            :preferredArrivalTime, :preferredDuration, :preferLowEmission, 
+            :preferredGroundTransportation, :preferredHotelChain
+        )
+    """)
+    try:
+        with engine.begin() as connection:
+            connection.execute(sql, prefs_data)
         return True
     except SQLAlchemyError as e:
         print(f"An error occurred: {e}")

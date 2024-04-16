@@ -83,29 +83,80 @@ def submit_user_data(entries):
         'billingPostcode': entries['Billing Postcode'].get(),
         'birthDate': entries['Birth Date'].get(),
         'gender': entries['Gender'].get(),
-        'email': entries['Email'].get(),
+        'email': entries['Email'].get()
     }
 
-    # Ensure all required fields are provided
     for key, value in user_data.items():
         if not value:
             messagebox.showerror("Error", f"Please fill out the {key} field.")
             return
 
-    # URL to the create_user route in your Flask app
     url = 'http://127.0.0.1:5000/create_user'
 
-    # Make a POST request to the server
     try:
         response = requests.post(url, json=user_data)
         if response.status_code == 201:
             messagebox.showinfo("Success", "User created successfully!")
+            global current_user_id
+            current_user_id = response.json().get('userID')
         else:
-            # If response code is not 201, there was an error
             messagebox.showerror("Error", f"Failed to create user: {response.json().get('message')}")
     except requests.exceptions.RequestException as e:
-        # Handle any errors that occur during the request
         messagebox.showerror("Error", f"Failed to create user: {e}")
+
+def open_preferences_window():
+    pref_window = tk.Toplevel(root)
+    pref_window.title("User Preferences")
+
+    # Define the fields for preferences
+    labels = [
+        'Preferred Flying Class', 'Preferred Layover Time (HH:MM)', 'Preferred Departure Time (HH:MM)',
+        'Preferred Arrival Time (HH:MM)', 'Preferred Duration (Minutes)', 'Prefer Low Emission (1 for yes, 0 for no)',
+        'Preferred Ground Transportation', 'Preferred Hotel Chain'
+    ]
+    entries = {}
+    
+    # Combobox for preferred flying class
+    flying_classes = ["coach", "premium coach", "business", "first"]
+    ttk.Label(pref_window, text=labels[0]).grid(row=0, column=0, padx=10, pady=5)
+    flying_class_combobox = ttk.Combobox(pref_window, values=flying_classes, state="readonly")
+    flying_class_combobox.grid(row=0, column=1, padx=10, pady=5)
+    entries[labels[0]] = flying_class_combobox
+
+    # Entries for other preferences
+    for idx, label in enumerate(labels[1:], 1):
+        ttk.Label(pref_window, text=label).grid(row=idx, column=0, padx=10, pady=5)
+        entry = ttk.Entry(pref_window, width=25)
+        entry.grid(row=idx, column=1, padx=10, pady=5)
+        entries[label] = entry
+
+    # Button to submit preferences
+    ttk.Button(pref_window, text="Submit Preferences", command=lambda: submit_preferences_data(entries)).grid(row=len(labels), column=0, columnspan=2, pady=10)
+
+def submit_preferences_data(entries):
+    # Collect all preference data
+    preferences_data = {
+        'userID': current_user_id,
+        'preferredFlyingClass': entries['Preferred Flying Class'].get(),
+        'preferredLayoverTime': entries['Preferred Layover Time (HH:MM)'].get(),
+        'preferredDepartureTime': entries['Preferred Departure Time (HH:MM)'].get(),
+        'preferredArrivalTime': entries['Preferred Arrival Time (HH:MM)'].get(),
+        'preferredDuration': entries['Preferred Duration (Minutes)'].get(),
+        'preferLowEmission': entries['Prefer Low Emission (1 for yes, 0 for no)'].get(),
+        'preferredGroundTransportation': entries['Preferred Ground Transportation'].get(),
+        'preferredHotelChain': entries['Preferred Hotel Chain'].get()
+    }
+
+    # Send preference data to the backend
+    url = 'http://127.0.0.1:5000/add_preferences'
+    try:
+        response = requests.post(url, json=preferences_data)
+        if response.status_code == 201:
+            messagebox.showinfo("Success", "Preferences saved successfully!")
+        else:
+            messagebox.showerror("Error", f"Failed to save preferences: {response.json().get('message')}")
+    except requests.exceptions.RequestException as e:
+        messagebox.showerror("Error", f"Failed to save preferences: {e}")
 
 # Setup input and interface elements
 input_frame = ttk.Frame(root)
@@ -126,6 +177,7 @@ search_button.pack(side='left', padx=(10, 10))
 
 columns = ('source', 'destination', 'airline')
 tree = ttk.Treeview(root, columns=columns, show='headings')
+
 for col in columns:
     tree.heading(col, text=col.capitalize())
     tree.column(col, width=120)
@@ -141,6 +193,6 @@ users_menu.add_command(label="Create User", command=create_user_window)
 
 preferences_menu = tk.Menu(menu_bar, tearoff=0)
 menu_bar.add_cascade(label="Preferences", menu=preferences_menu)
-preferences_menu.add_command(label="Settings", command=lambda: messagebox.showinfo("Preferences", "Settings"))
+preferences_menu.add_command(label="Edit Preferences", command=open_preferences_window)
 
 root.mainloop()

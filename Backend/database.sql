@@ -117,7 +117,7 @@ CREATE TABLE Itineraries (
 CREATE TABLE Preferences (
   preferenceID int AUTO_INCREMENT, -- User can have multiple presets
   userID int,
-  preferredFlyingClass ENUM('coach, premium coach, business, first'),
+  preferredFlyingClass ENUM('coach', 'premium coach', 'business', 'first'),
   preferredLayoverTime TIME,
   preferredDepartureTime TIME,
   preferredArrivalTime TIME,
