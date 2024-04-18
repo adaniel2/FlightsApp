@@ -268,6 +268,29 @@ def query_flight_details(source_iata, destination_iata, airline_name, is_non_sto
                 formatted_time = f"{hours:02}:{minutes:02}:00"  # Format to HH:MM:SS
                 params['arrival_time'] = formatted_time
 
+            if 'preferredDepartureTime' in preferences and preferences['preferredDepartureTime']:
+                # Convert float time (expressed in seconds since midnight) to HH:MM:SS format for SQL
+                hours = int(preferences['preferredDepartureTime'] // 3600)
+                minutes = int((preferences['preferredDepartureTime'] % 3600) // 60)
+                formatted_time = f"{hours:02}:{minutes:02}:00"  # Format to HH:MM:SS
+
+                # SQL condition to check the preferred departure time +/- 1 hour
+                sql_query += """
+                AND TIME(STR_TO_DATE(segmentsDepartureTimeRaw, '%Y-%m-%dT%H:%i:%s')) 
+                BETWEEN TIME(:departure_time) - INTERVAL 1 HOUR AND TIME(:departure_time) + INTERVAL 1 HOUR
+                """
+                params['departure_time'] = formatted_time
+
+            if 'preferredLayoverTime' in preferences and preferences['preferredLayoverTime']:
+                # Convert seconds to minutes for easier comparison and readability in SQL
+                minutes = preferences['preferredLayoverTime'] // 60
+
+                # SQL condition to match the layover time
+                sql_query += """
+                AND layoverDurationMinutes = :layover_minutes
+                """
+                params['layover_minutes'] = minutes
+
             # Order the results
             sql_query += " ORDER BY flightDate, segmentsDepartureTimeRaw;"
 
