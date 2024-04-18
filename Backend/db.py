@@ -258,7 +258,6 @@ def query_flight_details(source_iata, destination_iata, airline_name, is_non_sto
                 params['duration'] = preferences['preferredDuration'] * 60
 
             if 'preferredArrivalTime' in preferences and preferences['preferredArrivalTime']:
-                # Assuming there's a relevant column for arrival time
                 sql_query += """
                 AND TIME(STR_TO_DATE(segmentsArrivalTimeRaw, '%Y-%m-%dT%H:%i:%s')) <= TIME(:arrival_time)
                 """
