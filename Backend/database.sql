@@ -6,19 +6,18 @@ Itineraries, Preferences, LoyaltyProgram, Users, Airplanes, Cities, Airports, Ai
 CREATE TABLE Users (
   userID int AUTO_INCREMENT,
   fullName VARCHAR(128) NOT NULL, -- 128 characters seems more than reasonable for a full name
-  phoneNumber VARCHAR(25) NOT NULL, -- Could allow multiple phone numbers; kept as 1 for project scope
+  phoneNumber VARCHAR(25) NOT NULL UNIQUE, -- Could allow multiple phone numbers; kept as 1 for project scope
   addressFirstLine VARCHAR(64) NOT NULL,
   addressLastLine VARCHAR(64) NOT NULL,
   addressPostcode VARCHAR(10) NOT NULL,
   billingFirstLine VARCHAR(64) NOT NULL,
   billingLastLine VARCHAR(64) NOT NULL,
   billingPostcode VARCHAR(10) NOT NULL,
-  birthDate DATE NOT NULL,
+  birthDate DATE NOT NULL CHECK (birthDate <= CURDATE() AND birthDate > CURDATE() - INTERVAL 200 YEAR),
   gender ENUM('M', 'F', 'NB') NOT NULL,
-  email VARCHAR(255) NOT NULL UNIQUE,
+  email VARCHAR(255) NOT NULL UNIQUE CHECK (email LIKE '%@%.%'),
   
   PRIMARY KEY (userID),
-  UNIQUE (phoneNumber)
 );
 
 -- Airline table
@@ -49,8 +48,8 @@ CREATE TABLE LoyaltyProgram(
 -- Airplanes table
 CREATE TABLE Airplanes (
   airplaneName VARCHAR(128) NOT NULL,
-  iata VARCHAR(5) NOT NULL,
-  icao VARCHAR(5),
+  iata VARCHAR(5) NOT NULL UNIQUE,
+  icao VARCHAR(5) UNIQUE,
 
   PRIMARY KEY (airplaneName)
 );
@@ -72,7 +71,7 @@ CREATE TABLE Airports (
   airportID int,
   airportName VARCHAR(100) NOT NULL, -- Longest airport name at 72 characters
   cityID INT NOT NULL,
-  iata VARCHAR(5) NOT NULL,
+  iata VARCHAR(5) NOT NULL UNIQUE,
   icao VARCHAR(5),
 
   PRIMARY KEY (airportID),
