@@ -6,36 +6,40 @@ Itineraries, Preferences, LoyaltyProgram, Users, Airplanes, Cities, Airports, Ai
 CREATE TABLE Users (
   userID int AUTO_INCREMENT,
   fullName VARCHAR(128) NOT NULL, -- 128 characters seems more than reasonable for a full name
-  phoneNumber VARCHAR(25), -- Could allow multiple phone numbers; kept as 1 for project scope
-  addressFirstLine VARCHAR(64),
-  addressLastLine VARCHAR(64),
-  addressPostcode VARCHAR(10),
-  billingFirstLine VARCHAR(64),
-  billingLastLine VARCHAR(64),
-  billingPostcode VARCHAR(10),
+  phoneNumber VARCHAR(25) NOT NULL, -- Could allow multiple phone numbers; kept as 1 for project scope
+  addressFirstLine VARCHAR(64) NOT NULL,
+  addressLastLine VARCHAR(64) NOT NULL,
+  addressPostcode VARCHAR(10) NOT NULL,
+  billingFirstLine VARCHAR(64) NOT NULL,
+  billingLastLine VARCHAR(64) NOT NULL,
+  billingPostcode VARCHAR(10) NOT NULL,
   birthDate DATE NOT NULL,
   gender ENUM('M', 'F', 'NB') NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   
-  PRIMARY KEY (userID)
+  PRIMARY KEY (userID),
+  UNIQUE (phoneNumber)
 );
 
 -- Airline table
 CREATE TABLE Airline (
     airlineID int,
     airlineName VARCHAR(128) NOT NULL,
-    iata VARCHAR(5),
+    iata VARCHAR(5) NOT NULL,
     icao VARCHAR(5),
     country VARCHAR(64), -- The longest English country name is 56 characters
 
     PRIMARY KEY (airlineID)
 );
 
+CREATE INDEX idx_airline_name ON Airline(airlineName);
+CREATE INDEX idx_airline_iata ON Airline(iata);
+
 -- Loyalty Program table
 CREATE TABLE LoyaltyProgram(
     userID int,
-    loyaltyProgram VARCHAR(20) NOT NULL,
-    loyaltyAirlineID int,
+    loyaltyProgram VARCHAR(20),
+    loyaltyAirlineID int NOT NULL,
     loyaltyPoints INT NOT NULL DEFAULT 100,
 
     PRIMARY KEY (userID, loyaltyProgram),
@@ -44,8 +48,8 @@ CREATE TABLE LoyaltyProgram(
 
 -- Airplanes table
 CREATE TABLE Airplanes (
-  airplaneName VARCHAR(128),
-  iata VARCHAR(5),
+  airplaneName VARCHAR(128) NOT NULL,
+  iata VARCHAR(5) NOT NULL,
   icao VARCHAR(5),
 
   PRIMARY KEY (airplaneName)
@@ -54,9 +58,9 @@ CREATE TABLE Airplanes (
 -- Cities table
 CREATE TABLE Cities (
   cityID INT AUTO_INCREMENT,
-  cityName VARCHAR(85), -- Guinness World Record for longest place name @ 85 characters
-  country VARCHAR(64),
-  timezone VARCHAR(50), -- Adjusting char length as needed
+  cityName VARCHAR(85) NOT NULL, -- Guinness World Record for longest place name @ 85 characters
+  country VARCHAR(64) NOT NULL,
+  timezone VARCHAR(50) NOT NULL, -- Adjusting char length as needed
 
   PRIMARY KEY (cityID),
   UNIQUE (cityName, country),
@@ -66,9 +70,9 @@ CREATE TABLE Cities (
 -- Airports table
 CREATE TABLE Airports (
   airportID int,
-  airportName VARCHAR(100), -- Longest airport name at 72 characters
-  cityID INT,
-  iata VARCHAR(5),
+  airportName VARCHAR(100) NOT NULL, -- Longest airport name at 72 characters
+  cityID INT NOT NULL,
+  iata VARCHAR(5) NOT NULL,
   icao VARCHAR(5),
 
   PRIMARY KEY (airportID),
@@ -80,11 +84,11 @@ CREATE INDEX idx_airports_airport_name ON Airports(airportName);
 
 -- Flights table
 CREATE TABLE Flights (
-  flightID int,
-  airplaneName VARCHAR(128),
-  flightTime TIME,
-  arrivalTime TIME,
-  departureTime TIME,
+  flightID VARCHAR(35),
+  airplaneName VARCHAR(128) NOT NULL,
+  flightTime TIME NOT NULL,
+  arrivalTime TIME NOT NULL,
+  departureTime TIME NOT NULL,
 
   PRIMARY KEY (flightID),
   
@@ -92,30 +96,19 @@ CREATE TABLE Flights (
 );
 
 CREATE TABLE FlightPassengers (
-  flightID int,
+  flightID VARCHAR(35),
   userID int,
+
+  PRIMARY KEY (flightID, userID),
 
   FOREIGN KEY (flightID) REFERENCES Flights (flightID) ON DELETE CASCADE,
   FOREIGN KEY (userID) REFERENCES Users (userID) ON DELETE CASCADE
 );
 
--- Itineraries table
-CREATE TABLE Itineraries (
-  userID int,
-  flightID int,
-  flyingClass ENUM('coach, premium coach, business, first') NOT NULL,
-  layoverTime TIME,
-  airlineID int,
-  PRIMARY KEY (userID, flightID),
-
-  FOREIGN KEY (userID) REFERENCES Users (userID) ON DELETE CASCADE,
-  FOREIGN KEY (flightID) REFERENCES Flights (flightID) ON DELETE CASCADE,
-  FOREIGN KEY (airlineID) REFERENCES Airline (airlineID) ON DELETE CASCADE
-);
-
 -- Preferences table
 CREATE TABLE Preferences (
-  preferenceID int AUTO_INCREMENT, -- User can have multiple presets
+  -- All optional except PK
+  preferenceNumber int, -- User can have multiple presets
   userID int,
   preferredFlyingClass ENUM('coach', 'premium coach', 'business', 'first'),
   preferredLayoverTime TIME,
@@ -126,21 +119,21 @@ CREATE TABLE Preferences (
   preferredGroundTransportation VARCHAR(20),
   preferredHotelChain VARCHAR(20),
 
-  PRIMARY KEY (preferenceID, userID),
+  PRIMARY KEY (preferenceNumber, userID),
 
   FOREIGN KEY (userID) REFERENCES Users (userID) ON DELETE CASCADE
 );
 
 -- ConnectingAirports table
 CREATE TABLE ConnectingAirports(
-    preferenceID int,
+    preferenceNumber int,
     userID int,
-    connectingAirport int,
-    airportName VARCHAR(100),
+    connectingAirport int NOT NULL,
+    airportName VARCHAR(100) NOT NULL,
 
-    PRIMARY KEY (preferenceID, userID, connectingAirport),
+    PRIMARY KEY (preferenceNumber, userID, connectingAirport),
 
-    FOREIGN KEY (preferenceID, userID) REFERENCES Preferences (preferenceID, userID) ON DELETE CASCADE,
+    FOREIGN KEY (preferenceNumber, userID) REFERENCES Preferences (preferenceNumber, userID) ON DELETE CASCADE,
     FOREIGN KEY (connectingAirport) REFERENCES Airports (airportID) ON DELETE CASCADE,
     FOREIGN KEY (airportName) REFERENCES Airports (airportName) -- ON DELETE CASCADE?
 );
@@ -170,34 +163,57 @@ CREATE TABLE BelongsTo (
 
 CREATE TABLE Schedule (
   legId VARCHAR(35), -- Some 32-digit hexadecimal number
-  flightDate DATE,
-  startingAirport VARCHAR(5), -- Using IATA code
-  destinationAirport VARCHAR(5), -- Using IATA code
-  travelDuration VARCHAR(50), -- ISO 8601 duration format, no fixed length it seems; will be conservative
-  elapsedDays int,
-  isBasicEconomy tinyint(1),
-  isRefundable tinyint(1),
-  isNonStop tinyint(1),
-  baseFare FLOAT,
-  totalFare FLOAT,
-  seatsRemaining INT,
+  startingAirport VARCHAR(5) NOT NULL, -- Using IATA code
+  destinationAirport VARCHAR(5) NOT NULL, -- Using IATA code
+  flightDate DATE NOT NULL,
+  travelDuration VARCHAR(50) NOT NULL, -- ISO 8601 duration format, no fixed length it seems; will be conservative
+  elapsedDays int NOT NULL,
+  isBasicEconomy tinyint(1) NOT NULL,
+  isRefundable tinyint(1) NOT NULL,
+  isNonStop tinyint(1) NOT NULL,
+  baseFare FLOAT NOT NULL,
+  totalFare FLOAT NOT NULL,
+  seatsRemaining INT NOT NULL,
 
   -- Segment strings are long; maybe 128 is a safe bet
-  segmentsDepartureTimeRaw VARCHAR(128),
-  segmentsArrivalTimeRaw VARCHAR(128),
-  segmentsArrivalAirportCode VARCHAR(128),
-  segmentsDepartureAirportCode VARCHAR(128),
-  segmentsAirlineCode VARCHAR(128),
-  segmentsEquipmentDescription VARCHAR(128),
-  segmentsDurationInSeconds VARCHAR(128),
-  segmentsCabinCode VARCHAR(128),
+  segmentsDepartureTimeRaw VARCHAR(128) NOT NULL,
+  segmentsArrivalTimeRaw VARCHAR(128) NOT NULL,
+  segmentsArrivalAirportCode VARCHAR(128) NOT NULL,
+  segmentsDepartureAirportCode VARCHAR(128) NOT NULL,
+  segmentsAirlineName VARCHAR(128) NOT NULL,
+  segmentsAirlineCode VARCHAR(128) NOT NULL,
+  segmentsEquipmentDescription VARCHAR(128) NOT NULL,
+  segmentsDurationInSeconds VARCHAR(128) NOT NULL,
+  segmentsCabinCode VARCHAR(128) NOT NULL,
 
   PRIMARY KEY (legId),
   FOREIGN KEY (startingAirport) REFERENCES Airports (iata),
   FOREIGN KEY (destinationAirport) REFERENCES Airports (iata)
 );
 
+-- Itineraries table
+CREATE TABLE Itineraries (
+  userID int,
+  flightID VARCHAR(35),
+  flyingClass ENUM('coach', 'premium coach', 'business', 'first') NOT NULL,
+  airlineName VARCHAR(128) NOT NULL, -- Should be airlineID, but airline IATA is also unique and saves us work
+
+  PRIMARY KEY (userID, flightID),
+
+  FOREIGN KEY (userID) REFERENCES Users (userID) ON DELETE CASCADE,
+  FOREIGN KEY (flightID) REFERENCES Schedule (legId) ON DELETE CASCADE,
+  FOREIGN KEY (airlineName) REFERENCES Airline (airlineName) ON DELETE CASCADE
+);
+
+-- CREATE TABLE LayoverTimes (
+
+-- );
+
 -- ------------------ TRIGGERS ------------------------
+
+DROP TRIGGER IF EXISTS check_iata_before_insert;
+DROP TRIGGER IF EXISTS check_iata_before_update;
+
 
 DELIMITER $$
 
@@ -242,13 +258,17 @@ IGNORE 3 LINES
   @dummy   -- Active column to be ignored.
 )
 SET
-  airlineName = NULLIF(@temp_name, 'Unknown'),
+  airlineName = CASE
+                  WHEN @temp_name = 'Delta Air Lines' THEN 'Delta'
+                  WHEN @temp_name = 'Unknown' THEN NULL
+                  ELSE @temp_name
+                END,
   iata = NULLIF(@temp_IATA, '-'),
   icao = NULLIF(@temp_ICAO, ''),
   country = NULLIF(@temp_Country, '\\N');
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/Airplanes.csv'
-INTO TABLE Airplanes
+IGNORE INTO TABLE Airplanes
 FIELDS TERMINATED BY ','
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
@@ -274,16 +294,16 @@ IGNORE 1 LINES
 -- Create a temporary table to hold all data from CSV
 CREATE TABLE TempAirports (
 	airportID int,
-  airportName VARCHAR(100),
-  cityName VARCHAR(85),
-  country VARCHAR(64),
-  iata VARCHAR(5),
+  airportName VARCHAR(100) NOT NULL,
+  cityName VARCHAR(85) NOT NULL,
+  country VARCHAR(64) NOT NULL,
+  iata VARCHAR(5) NOT NULL,
   icao VARCHAR(5)
 );
 
 -- Load data into the temporary table
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/airports.csv'
-INTO TABLE TempAirports
+IGNORE INTO TABLE TempAirports
 FIELDS TERMINATED BY ','
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
@@ -368,7 +388,7 @@ IGNORE 1 LINES
   segmentsArrivalTimeRaw,
   segmentsArrivalAirportCode,
   segmentsDepartureAirportCode,
-  @segmentsAirlineName,
+  segmentsAirlineName,
   segmentsAirlineCode,
   segmentsEquipmentDescription,
   segmentsDurationInSeconds,
