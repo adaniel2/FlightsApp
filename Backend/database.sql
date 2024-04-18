@@ -13,11 +13,11 @@ CREATE TABLE Users (
   billingFirstLine VARCHAR(64) NOT NULL,
   billingLastLine VARCHAR(64) NOT NULL,
   billingPostcode VARCHAR(10) NOT NULL,
-  birthDate DATE NOT NULL CHECK (birthDate <= CURDATE() AND birthDate > CURDATE() - INTERVAL 200 YEAR),
+  birthDate DATE NOT NULL,
   gender ENUM('M', 'F', 'NB') NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE CHECK (email LIKE '%@%.%'),
   
-  PRIMARY KEY (userID),
+  PRIMARY KEY (userID)
 );
 
 -- Airline table
@@ -71,7 +71,7 @@ CREATE TABLE Airports (
   airportID int,
   airportName VARCHAR(100) NOT NULL, -- Longest airport name at 72 characters
   cityID INT NOT NULL,
-  iata VARCHAR(5) NOT NULL UNIQUE,
+  iata VARCHAR(5) NOT NULL,
   icao VARCHAR(5),
 
   PRIMARY KEY (airportID),
@@ -233,6 +233,18 @@ BEGIN
   IF NEW.iata IS NULL AND NEW.icao IS NULL THEN
     SIGNAL SQLSTATE '45000'
     SET MESSAGE_TEXT = 'Either iata or icao must be provided on update.';
+  END IF;
+END$$
+
+CREATE TRIGGER before_insert_users
+BEFORE INSERT ON Users
+FOR EACH ROW
+BEGIN
+  IF NEW.birthDate <= CURDATE() AND NEW.birthDate > CURDATE() - INTERVAL 200 YEAR THEN
+    -- Dummy operation: Do nothing
+    SET @dummy = 0;
+  ELSE
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid birth date';
   END IF;
 END$$
 
