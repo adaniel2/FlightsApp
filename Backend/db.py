@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 import datetime
+import re
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +26,54 @@ engine = create_engine(connection_string)
 # ------------------- Query functions -----------------------
 # -----------------------------------------------------------
 
+def get_flight_data_for_clustering(features, selected_view):
+    sql = f"SELECT {', '.join(features)} FROM {selected_view}"
+
+    try:
+        with engine.connect() as connection:
+            df = pd.read_sql(sql, connection)
+
+            if 'travelDuration' in features:
+                df['travelDuration'] = df['travelDuration'].apply(
+                    iso8601_duration_to_minutes)
+                
+            # Automatically handle one-hot encoding if 'segmentsCabinCode' is included
+            if 'segmentsCabinCode' in features:
+                df = pd.get_dummies(df, columns=['segmentsCabinCode'], drop_first=True)
+
+            return df
+    except Exception as e:
+        print(f"Error fetching data for clustering: {str(e)}")
+
+        return pd.DataFrame()
+
+def get_data_for_correlation(features):
+    sql = f"SELECT {', '.join(features)} FROM vNonStopFlights"
+
+    try:
+        with engine.connect() as connection:
+            result = pd.read_sql(sql, connection)
+
+            if 'travelDuration' in features:
+                result['travelDuration'] = result['travelDuration'].apply(
+                    iso8601_duration_to_minutes)
+
+            return result
+    except Exception as e:
+        print(f"Error fetching data for correlation: {str(e)}")
+        return pd.DataFrame()
+
+    
+def get_data_for_apriori():
+    # This would ideally fetch transactional data; adjust the SQL as necessary
+    sql = "SELECT transaction_id, item FROM TransactionTable"
+    try:
+        with engine.connect() as connection:
+            result = pd.read_sql(sql, connection)
+            return result
+    except Exception as e:
+        print(f"Error fetching data for Apriori: {str(e)}")
+        return pd.DataFrame()
 
 def create_user(user_data):
     sql = text("""
@@ -232,7 +281,7 @@ def query_flight_details(source_iata, destination_iata, airline_name, is_non_sto
                     segmentsArrivalAirportCode, segmentsDepartureAirportCode,
                     segmentsAirlineCode, segmentsEquipmentDescription,
                     segmentsDurationInSeconds, segmentsCabinCode
-                FROM Schedule
+                FROM Legs
                 WHERE startingAirport = :source_iata
                   AND destinationAirport = :destination_iata
                   AND segmentsAirlineCode = :airline_iata
@@ -296,7 +345,7 @@ def query_flight_details(source_iata, destination_iata, airline_name, is_non_sto
             print(sql_query)
 
             # Execute the dynamic query
-            schedule_result = connection.execute(text(sql_query), params).fetchall()
+            legs_result = connection.execute(text(sql_query), params).fetchall()
 
             # Prepare data for return
             column_names = [
@@ -309,7 +358,7 @@ def query_flight_details(source_iata, destination_iata, airline_name, is_non_sto
                 'segmentsDurationInSeconds', 'segmentsCabinCode'
             ]
 
-            return [dict(zip(column_names, row)) for row in schedule_result]
+            return [dict(zip(column_names, row)) for row in legs_result]
 
     except SQLAlchemyError as e:
         print(f"An error occurred: {e}")
@@ -327,7 +376,7 @@ def add_itinerary_to_db(itinerary_data):
             segmentsArrivalAirportCode, segmentsDepartureAirportCode,
             segmentsAirlineName, segmentsAirlineCode, segmentsEquipmentDescription,
             segmentsDurationInSeconds, segmentsCabinCode
-        FROM Schedule
+        FROM Legs
         WHERE legId = :flightID
     """)
 
@@ -361,6 +410,41 @@ def add_itinerary_to_db(itinerary_data):
         print(f"An error occurred: {e}")
         return False
 
+def get_analyze_price_trends(start_date, end_date):
+    # SQL to call the stored procedure
+    sql = text("CALL AnalyzePriceTrends(:start, :end)")
+    
+    with engine.connect() as conn:
+        # Execute the stored procedure passing the parameters as a dictionary
+        result = conn.execute(sql, {'start': start_date, 'end': end_date})
+        # Fetching all results from the query
+        rows = result.fetchall()
+        
+        # Convert each tuple in the list to a dictionary
+        trends = [
+            {'month': row[0], 'avgBaseFare': row[2], 'avgTotalFare': row[3], 'cabinClass': row[1]} 
+            for row in rows
+        ]
+        
+        return trends
+
 
 def convert_row_to_dict(row, column_names):
     return dict(zip(column_names, row))
+
+def iso8601_duration_to_minutes(duration_str):
+    # Regex to extract hours and minutes from the ISO 8601 duration format
+    pattern = re.compile(r'PT(?:(\d+)H)?(?:(\d+)M)?')
+    parts = pattern.match(duration_str)
+    
+    if not parts:
+        print(f"No match for {duration_str}")
+        return 0
+    
+    parts = parts.groups()
+    hours = int(parts[0]) if parts[0] else 0
+    minutes = int(parts[1]) if parts[1] else 0
+    
+    total_minutes = hours * 60 + minutes
+    
+    return total_minutes

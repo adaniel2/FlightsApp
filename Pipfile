@@ -10,6 +10,9 @@ pandas = "*"
 sqlalchemy = "*"
 python-dotenv = "*"
 pymysql = "*"
+scikit-learn = "*"
+mlxtend = "*"
+seaborn = "*"
 
 [dev-packages]
 

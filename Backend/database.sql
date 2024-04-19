@@ -1,6 +1,6 @@
 -- Drop tables if they exist
-DROP TABLE IF EXISTS BelongsTo, ConnectingAirports, HasRoutes, TempRoutes, TempAirports, FlightPassengers, Flights, Schedule,
-Itineraries, Preferences, LoyaltyProgram, Users, Airplanes, Cities, Airports, Airline;
+DROP TABLE IF EXISTS LegPassengers, LayoverTimes, Itineraries, Legs,
+LoyaltyProgram, Preferences, ConnectingAirports, AirlineRoutes, BelongsTo, Airports, Airplanes, Cities, Users, Airline;
 
 -- Users table
 CREATE TABLE Users (
@@ -81,29 +81,6 @@ CREATE TABLE Airports (
 CREATE INDEX idx_airports_iata ON Airports(iata);
 CREATE INDEX idx_airports_airport_name ON Airports(airportName);
 
--- Flights table
-CREATE TABLE Flights (
-  flightID VARCHAR(35),
-  airplaneName VARCHAR(128) NOT NULL,
-  flightTime TIME NOT NULL,
-  arrivalTime TIME NOT NULL,
-  departureTime TIME NOT NULL,
-
-  PRIMARY KEY (flightID),
-  
-  FOREIGN KEY (airplaneName) REFERENCES Airplanes (airplaneName) ON DELETE CASCADE
-);
-
-CREATE TABLE FlightPassengers (
-  flightID VARCHAR(35),
-  userID int,
-
-  PRIMARY KEY (flightID, userID),
-
-  FOREIGN KEY (flightID) REFERENCES Flights (flightID) ON DELETE CASCADE,
-  FOREIGN KEY (userID) REFERENCES Users (userID) ON DELETE CASCADE
-);
-
 -- Preferences table
 CREATE TABLE Preferences (
   -- All optional except PK
@@ -118,7 +95,7 @@ CREATE TABLE Preferences (
   preferredGroundTransportation VARCHAR(20),
   preferredHotelChain VARCHAR(20),
 
-  PRIMARY KEY (preferenceNumber, userID),
+  PRIMARY KEY (userID, preferenceNumber),
 
   FOREIGN KEY (userID) REFERENCES Users (userID) ON DELETE CASCADE
 );
@@ -130,15 +107,15 @@ CREATE TABLE ConnectingAirports(
     connectingAirport int NOT NULL,
     airportName VARCHAR(100) NOT NULL,
 
-    PRIMARY KEY (preferenceNumber, userID, connectingAirport),
+    PRIMARY KEY (userID, preferenceNumber, connectingAirport),
 
-    FOREIGN KEY (preferenceNumber, userID) REFERENCES Preferences (preferenceNumber, userID) ON DELETE CASCADE,
+    FOREIGN KEY (userID, preferenceNumber) REFERENCES Preferences (userID, preferenceNumber) ON DELETE CASCADE,
     FOREIGN KEY (connectingAirport) REFERENCES Airports (airportID) ON DELETE CASCADE,
     FOREIGN KEY (airportName) REFERENCES Airports (airportName) -- ON DELETE CASCADE?
 );
 
--- HasRoutes table
-CREATE TABLE HasRoutes (
+-- AirlineRoutes table (this is the Between relationship in the ER diagram, not needed because 1:1, but probably useful)
+CREATE TABLE AirlineRoutes (
     airlineID int,
     sourceAirportID int,
     destinationAirportID int,
@@ -160,10 +137,10 @@ CREATE TABLE BelongsTo (
    FOREIGN KEY (airplaneName) REFERENCES Airplanes (airplaneName) ON DELETE CASCADE
 );
 
-CREATE TABLE Schedule (
-  legId VARCHAR(35), -- Some 32-digit hexadecimal number
-  startingAirport VARCHAR(5) NOT NULL, -- Using IATA code
-  destinationAirport VARCHAR(5) NOT NULL, -- Using IATA code
+CREATE TABLE Legs (
+  legID VARCHAR(35), -- Some 32-digit hexadecimal number
+  startingAirport VARCHAR(5), -- Using IATA code
+  destinationAirport VARCHAR(5), -- Using IATA code
   flightDate DATE NOT NULL,
   travelDuration VARCHAR(50) NOT NULL, -- ISO 8601 duration format, no fixed length it seems; will be conservative
   elapsedDays int NOT NULL,
@@ -185,28 +162,101 @@ CREATE TABLE Schedule (
   segmentsDurationInSeconds VARCHAR(128) NOT NULL,
   segmentsCabinCode VARCHAR(128) NOT NULL,
 
-  PRIMARY KEY (legId),
+  PRIMARY KEY (legID),
   FOREIGN KEY (startingAirport) REFERENCES Airports (iata),
   FOREIGN KEY (destinationAirport) REFERENCES Airports (iata)
+);
+
+CREATE TABLE LegPassengers (
+  legID VARCHAR(35),
+  passengerID int,
+
+  PRIMARY KEY (legID, passengerID),
+
+  FOREIGN KEY (legID) REFERENCES Legs (legID) ON DELETE CASCADE,
+  FOREIGN KEY (passengerID) REFERENCES Users (userID) ON DELETE CASCADE
 );
 
 -- Itineraries table
 CREATE TABLE Itineraries (
   userID int,
-  flightID VARCHAR(35),
+  legID VARCHAR(35),
   flyingClass ENUM('coach', 'premium coach', 'business', 'first') NOT NULL,
   airlineName VARCHAR(128) NOT NULL, -- Should be airlineID, but airline IATA is also unique and saves us work
+  sourceAirport VARCHAR(5),
+  destinationAirport VARCHAR(5),
 
-  PRIMARY KEY (userID, flightID),
+  PRIMARY KEY (userID, legID),
 
   FOREIGN KEY (userID) REFERENCES Users (userID) ON DELETE CASCADE,
-  FOREIGN KEY (flightID) REFERENCES Schedule (legId) ON DELETE CASCADE,
-  FOREIGN KEY (airlineName) REFERENCES Airline (airlineName) ON DELETE CASCADE
+  FOREIGN KEY (legID) REFERENCES Legs (legID) ON DELETE CASCADE,
+  FOREIGN KEY (airlineName) REFERENCES Airline (airlineName) ON DELETE CASCADE,
+  FOREIGN KEY (sourceAirport) REFERENCES Airports (iata),
+  FOREIGN KEY (destinationAirport) REFERENCES Airports (iata)
 );
 
--- CREATE TABLE LayoverTimes (
+CREATE TABLE LayoverTimes (
+  userID int,
+  legID VARCHAR(35),
+  LayoverTime int,
 
--- );
+  PRIMARY KEY (userID, legID, LayoverTime),
+  FOREIGN KEY (userID, legID) REFERENCES Itineraries (userID, legID) ON DELETE CASCADE
+);
+
+-- Delays table
+CREATE TABLE Delays (
+    Year INT,
+    Quarter INT,
+    Month INT,
+    DayofMonth INT,
+    DayOfWeek INT,
+    FlightDate DATE,
+    Marketing_Airline_Network VARCHAR(50),
+    Operated_or_Branded_Code_Share_Partners VARCHAR(50),
+    IATA_Code_Marketing_Airline VARCHAR(5),
+    Originally_Scheduled_Code_Share_Airline VARCHAR(50),
+    IATA_Code_Originally_Scheduled_Code_Share_Airline VARCHAR(5),
+    Operating_Airline VARCHAR(50),
+    IATA_Code_Operating_Airline VARCHAR(5),
+    Tail_Number VARCHAR(10),
+    Flight_Number_Operating_Airline VARCHAR(10),
+    Origin VARCHAR(5),
+    OriginCityName VARCHAR(100),
+    OriginState VARCHAR(2),
+    OriginStateName VARCHAR(100),
+    Dest VARCHAR(5),
+    DestCityName VARCHAR(100),
+    DestState VARCHAR(2),
+    DestStateName VARCHAR(100),
+    DepTime TIME,
+    DepDelay FLOAT,
+    DepDelayMinutes FLOAT,
+    TaxiOut FLOAT,
+    WheelsOff TIME,
+    WheelsOn TIME,
+    TaxiIn FLOAT,
+    ArrTime TIME,
+    ArrDelay FLOAT,
+    ArrDelayMinutes FLOAT,
+    Cancelled TINYINT,
+    Diverted TINYINT,
+    ActualElapsedTime FLOAT,
+    AirTime FLOAT,
+    Flights INT,
+    Distance FLOAT,
+    CarrierDelay FLOAT,
+    WeatherDelay FLOAT,
+    SecurityDelay FLOAT,
+    LateAircraftDelay FLOAT,
+
+    PRIMARY KEY (FlightDate, Flight_Number_Operating_Airline, Origin, Dest, DepTime, ArrTime),
+    
+    FOREIGN KEY (IATA_Code_Marketing_Airline) REFERENCES Airline (iata),
+    FOREIGN KEY (IATA_Code_Originally_Scheduled_Code_Share_Airline) REFERENCES Airline (iata),
+    FOREIGN KEY (IATA_Code_Operating_Airline) REFERENCES Airline (iata)
+);
+
 
 -- ------------------ TRIGGERS ------------------------
 
@@ -303,6 +353,7 @@ IGNORE 1 LINES
 (@dummy, @dummy, cityName, country, @dummy, @dummy, @dummy, @dummy, @dummy, timezone, @dummy, @dummy, @dummy, @dummy);
 
 -- Create a temporary table to hold all data from CSV
+DROP TABLE IF EXISTS TempAirports;
 CREATE TABLE TempAirports (
 	airportID int,
   airportName VARCHAR(100) NOT NULL,
@@ -331,6 +382,7 @@ JOIN Cities c ON t.cityName = c.cityName AND t.country = c.country;
 DROP TABLE TempAirports;
 
 -- Create a temporary table to hold all data from CSV
+DROP TABLE IF EXISTS TempRoutes;
 CREATE TABLE TempRoutes (
   airlineName VARCHAR(100),
   airlineID INT,
@@ -363,7 +415,7 @@ SET
   sourceAirportID = NULLIF(@sourceAirportID, '\N'),
   destinationAirportID = NULLIF(@destinationAirportID, '\N');
 
-INSERT INTO HasRoutes (airlineID, sourceAirportID, destinationAirportID)
+INSERT INTO AirlineRoutes (airlineID, sourceAirportID, destinationAirportID)
 SELECT t.airlineID, t.sourceAirportID, t.destinationAirportID
 FROM TempRoutes t
 WHERE t.airlineID IS NOT NULL
@@ -373,12 +425,12 @@ WHERE t.airlineID IS NOT NULL
   AND EXISTS (SELECT 1 FROM Airports a WHERE a.airportID = t.destinationAirportID);
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/Itineraries_small.csv'
-IGNORE INTO TABLE Schedule
+IGNORE INTO TABLE Legs
 FIELDS TERMINATED BY ',' ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n'
 IGNORE 1 LINES
 (
-  legId,
+  legID,
   @searchDate,
   @flightDate,
   startingAirport,
@@ -415,3 +467,154 @@ SET
   isBasicEconomy = CASE WHEN @isNonStop = 'TRUE' THEN 1 ELSE 0 END,              
   isRefundable = CASE WHEN @isNonStop = 'TRUE' THEN 1 ELSE 0 END,
   isNonStop = CASE WHEN @isNonStop = 'TRUE' THEN 1 ELSE 0 END;
+
+LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/Flights_2022_2.csv'
+INTO TABLE Delays
+FIELDS TERMINATED BY ',' 
+ENCLOSED BY '"' 
+LINES TERMINATED BY '\n'
+IGNORE 1 LINES
+(
+    Year,
+    Quarter,
+    Month,
+    DayofMonth,
+    DayOfWeek,
+    @FlightDate,
+    Marketing_Airline_Network,
+    Operated_or_Branded_Code_Share_Partners,
+    @dummy, -- DOT_ID_Marketing_Airline
+    IATA_Code_Marketing_Airline,
+    @dummy, -- Flight_Number_Marketing_Airline
+    Originally_Scheduled_Code_Share_Airline,
+    @dummy, -- DOT_ID_Originally_Scheduled_Code_Share_Airline
+    IATA_Code_Originally_Scheduled_Code_Share_Airline,
+    @dummy, -- Flight_Num_Originally_Scheduled_Code_Share_Airline
+    Operating_Airline,
+    @dummy, -- DOT_ID_Operating_Airline
+    IATA_Code_Operating_Airline,
+    Tail_Number,
+    Flight_Number_Operating_Airline,
+    @dummy, -- OriginAirportID
+    @dummy, -- OriginAirportSeqID
+    @dummy, -- OriginCityMarketID
+    Origin,
+    OriginCityName,
+    OriginState,
+    @dummy, -- OriginStateFips
+    OriginStateName,
+    @dummy, -- OriginWac
+    @dummy, -- DestAirportID
+    @dummy, -- DestAirportSeqID
+    @dummy, -- DestCityMarketID
+    Dest,
+    DestCityName,
+    DestState,
+    @dummy, -- DestStateFips
+    DestStateName,
+    @dummy, -- DestWac
+    @dummy, -- CRSDepTime
+    @DepTime,
+    @DepDelay,
+    @DepDelayMinutes,
+    @dummy, -- DepDel15
+    @dummy, -- DepartureDelayGroups
+    @dummy, -- DepTimeBlk
+    @TaxiOut,
+    @WheelsOff,
+    @WheelsOn,
+    @TaxiIn,
+    @dummy, -- CRSArrTime
+    ArrTime,
+    @ArrDelay,
+    @ArrDelayMinutes,
+    @dummy, -- ArrDel15
+    @dummy, -- ArrivalDelayGroups
+    @dummy, -- ArrTimeBlk
+    @Cancelled,
+    @dummy, -- CancellationCode
+    @Diverted,
+    @dummy, -- CRSElapsedTime
+    @ActualElapsedTime,
+    @AirTime,
+    @Flights,
+    @Distance,
+    @dummy, -- DistanceGroup
+    @CarrierDelay,
+    @WeatherDelay,
+    @dummy, -- NASDelay
+    @SecurityDelay,
+    @LateAircraftDelay,
+    @dummy, -- FirstDepTime
+    @dummy, -- TotalAddGTime
+    @dummy, -- LongestAddGTime
+    @dummy, -- DivAirportLandings
+    @dummy, -- DivReachedDest
+    @dummy, -- DivActualElapsedTime
+    @dummy, -- DivArrDelay
+    @dummy, -- DivDistance
+    @dummy, -- Div1Airport
+    @dummy, -- Div1AirportID
+    @dummy, -- Div1AirportSeqID
+    @dummy, -- Div1WheelsOn
+    @dummy, -- Div1TotalGTime
+    @dummy, -- Div1LongestGTime
+    @dummy, -- Div1WheelsOff
+    @dummy, -- Div1TailNum
+    @dummy, -- Div2Airport
+    @dummy, -- Div2AirportID
+    @dummy, -- Div2AirportSeqID
+    @dummy, -- Div2WheelsOn
+    @dummy, -- Div2TotalGTime
+    @dummy, -- Div2LongestGTime
+    @dummy, -- Div2WheelsOff
+    @dummy, -- Div2TailNum
+    @dummy, -- Div3Airport
+    @dummy, -- Div3AirportID
+    @dummy, -- Div3AirportSeqID
+    @dummy, -- Div3WheelsOn
+    @dummy, -- Div3TotalGTime
+    @dummy, -- Div3LongestGTime
+    @dummy, -- Div3WheelsOff
+    @dummy, -- Div3TailNum
+    @dummy, -- Div4Airport
+    @dummy, -- Div4AirportID
+    @dummy, -- Div4AirportSeqID
+    @dummy, -- Div4WheelsOn
+    @dummy, -- Div4TotalGTime
+    @dummy, -- Div4LongestGTime
+    @dummy, -- Div4WheelsOff
+    @dummy, -- Div4TailNum
+    @dummy, -- Div5Airport
+    @dummy, -- Div5AirportID
+    @dummy, -- Div5AirportSeqID
+    @dummy, -- Div5WheelsOn
+    @dummy, -- Div5TotalGTime
+    @dummy, -- Div5LongestGTime
+    @dummy, -- Div5WheelsOff
+    @dummy, -- Div5TailNum
+    @dummy -- Duplicate
+)
+SET
+    FlightDate = STR_TO_DATE(@FlightDate, '%Y-%m-%d'),
+    DepTime = INSERT(@DepTime, 3, 0, ':'),
+    WheelsOff = INSERT(@WheelsOff, 3, 0, ':'),
+    WheelsOn = INSERT(@WheelsOn, 3, 0, ':'),
+    DepDelay = NULLIF(@DepDelay, ''),
+    DepDelayMinutes = NULLIF(@DepDelayMinutes, ''),
+    TaxiOut = NULLIF(@TaxiOut, ''),
+    TaxiIn = NULLIF(@TaxiIn, ''),
+    ArrDelay = NULLIF(@ArrDelay, ''),
+    ArrDelayMinutes = NULLIF(@ArrDelayMinutes, ''),
+    Cancelled = NULLIF(@Cancelled, ''),
+    Diverted = NULLIF(@Diverted, ''),
+    ActualElapsedTime = NULLIF(@ActualElapsedTime, ''),
+    AirTime = NULLIF(@AirTime, ''),
+    Flights = NULLIF(@Flights, ''),
+    Distance = NULLIF(@Distance, ''),
+    CarrierDelay = NULLIF(@CarrierDelay, ''),
+    WeatherDelay = NULLIF(@WeatherDelay, ''),
+    SecurityDelay = NULLIF(@SecurityDelay, ''),
+    LateAircraftDelay = NULLIF(@LateAircraftDelay, ''),
+    ArrTime = INSERT(@ArrTime, 3, 0, ':');
+    

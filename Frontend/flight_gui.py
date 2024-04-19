@@ -6,6 +6,11 @@ from style_config import configure_styles
 import datetime
 import json
 import urllib.parse
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import itertools
 
 import sys
 sys.path.append('../Backend')  # Adds the Backend folder to the system path
@@ -182,7 +187,6 @@ def submit_preferences_data(entries):
                 "Error", f"Failed to save preferences: {response.json().get('message')}")
     except requests.exceptions.RequestException as e:
         messagebox.showerror("Error", f"Failed to save preferences: {e}")
-
 
 # Setup input and interface elements
 input_frame = ttk.Frame(root)
@@ -374,6 +378,203 @@ def choose_preference(user_id):
             "Error", f"Failed to fetch preferences: {response.json().get('message', 'An error occurred')}")
         return None
 
+def format_year_week(year_week_int):
+    # Convert year_week format from 202216 to "2022-W16"
+    year = year_week_int // 100
+    week = year_week_int % 100
+
+    return f"{year}-W{week:02d}"
+
+def open_analyze_price_trends_window():
+    trend_window = tk.Toplevel(root)
+    trend_window.title("Analyze Price Trends")
+    
+    # Add date entry fields and a submit button
+    ttk.Label(trend_window, text="Start Date (YYYY-MM-DD):").pack()
+    start_date_entry = ttk.Entry(trend_window)
+    start_date_entry.pack()
+    
+    ttk.Label(trend_window, text="End Date (YYYY-MM-DD):").pack()
+    end_date_entry = ttk.Entry(trend_window)
+    end_date_entry.pack()
+    
+    submit_button = ttk.Button(trend_window, text="Analyze", 
+        command=lambda: analyze_price_trends(start_date_entry.get(), end_date_entry.get()))
+    submit_button.pack()
+
+# Function to send request and display results
+def analyze_price_trends(start_date, end_date):
+    # Send request to Flask backend
+    url = 'http://127.0.0.1:5000/analyze_price_trends'
+    params = {'start_date': start_date, 'end_date': end_date}
+    response = requests.get(url, params=params)
+    
+    # Open a new window to display the JSON results
+    results_window = tk.Toplevel(root)
+    results_window.title("Trend Analysis Results")
+    
+    if response.status_code == 200:
+        json_data = response.json()
+        results_text = tk.Text(results_window)
+        results_text.insert(tk.END, json.dumps(json_data, indent=2))
+        results_text.pack()
+        
+        # Convert JSON data to DataFrame and process
+        df = pd.DataFrame(json_data)
+        df['formatted_year_week'] = df['month'].apply(format_year_week)
+        df.sort_values(by=['formatted_year_week'], inplace=True)  # Ensure data is sorted by time
+        
+        # Open another window for the plot
+        plot_window = tk.Toplevel(root)
+        plot_window.title("Price Trend Plot by Cabin Class")
+        
+        # Create a figure for plotting
+        figure = plt.Figure(figsize=(10, 6), dpi=100)
+        ax = figure.add_subplot(111)
+        
+        # Plotting the average total fare trends by cabin class
+        cabin_classes = df['cabinClass'].unique()
+        for cabin in cabin_classes:
+            subset = df[df['cabinClass'] == cabin]
+            subset.plot(x='formatted_year_week', y='avgTotalFare', kind='line', ax=ax, label=cabin, marker='o', linestyle='-')
+        
+        ax.set_title('Average Total Fare Trends by Cabin Class')
+        ax.set_xlabel('Year-Week')
+        ax.set_ylabel('Average Total Fare')
+        ax.legend(title='Cabin Class')
+        
+        # Embedding the plot in Tkinter
+        canvas = FigureCanvasTkAgg(figure, master=plot_window)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        
+    else:
+        messagebox.showerror("Error", "Failed to retrieve trends.")
+
+def open_cluster_flights_window():
+    cluster_window = tk.Toplevel(root)
+    cluster_window.title("Cluster Flights")
+
+    # Label and Dropdown for selecting the SQL View
+    ttk.Label(cluster_window, text="Select SQL View:").pack()
+    view_var = tk.StringVar(cluster_window)
+    view_var.set("vFlightPrices")  # default value
+    views_dropdown = ttk.OptionMenu(cluster_window, view_var, "vFlightPrices", "vFlightPrices", "vNonStopFlights")
+    views_dropdown.pack()
+
+    # Label and Entry for Features
+    ttk.Label(cluster_window, text="Features (comma-separated):").pack()
+    features_entry = ttk.Entry(cluster_window)
+    features_entry.pack()
+    features_entry.insert(0, "totalFare,travelDuration,segmentsCabinCode")  # Default value
+
+    # Label and Entry for Number of Clusters
+    ttk.Label(cluster_window, text="Number of Clusters:").pack()
+    n_clusters_entry = ttk.Entry(cluster_window)
+    n_clusters_entry.pack()
+    n_clusters_entry.insert(0, "3")  # Default value
+
+    # Button to submit and perform clustering
+    submit_button = ttk.Button(cluster_window, text="Cluster",
+                               command=lambda: perform_clustering(features_entry.get(), n_clusters_entry.get(), view_var.get()))
+    submit_button.pack()
+
+def generate_marker_dict(unique_categories):
+    # Define a cycle of markers from matplotlib
+    markers = itertools.cycle(('o', 's', '^', 'P', '*', 'X', 'D'))  # More markers can be added
+
+    return {category: next(markers) for category in unique_categories}
+
+def perform_clustering(features, n_clusters, selected_view):
+    split_features = features.split(',')
+    url = f'http://127.0.0.1:5000/cluster_flights?features={features}&n_clusters={n_clusters}&view={selected_view}'
+    response = requests.get(url)
+
+    results_window = tk.Toplevel(root)
+    results_window.title("Clustering Results")
+
+    if response.status_code == 200:
+        df = pd.DataFrame(response.json())
+
+        # Handling categorical
+        df['category: '] = df[[col for col in df.columns if f"{split_features[2]}_" in col]].idxmax(axis=1)
+        df['category: '] = df['category: '].apply(lambda x: x.split('_')[-1])
+
+        # Create a marker dictionary based on unique cabin codes
+        unique_categories = df['category: '].unique()
+        marker_dict = generate_marker_dict(unique_categories)
+
+        # Create a figure for plotting
+        figure = plt.Figure(figsize=(10, 10), dpi=100)
+        ax = figure.add_subplot(111)
+
+        # Create a scatter plot
+        for category in unique_categories:
+            subset = df[df['category: '] == category]
+            sns.scatterplot(x=f"{split_features[0]}", y=f"{split_features[1]}", style='category: ',
+                            markers=marker_dict, hue='cluster', data=subset, ax=ax, palette='viridis', legend='full')
+
+        #ax.set_title('Scatter Plot of Total Fare vs. Travel Duration by Cabin Code')
+        #ax.set_xlabel('Total Fare ($)')
+        #ax.set_ylabel('Travel Duration (minutes)')
+
+        # Get the legend object from the scatterplot
+        leg = ax.get_legend()
+
+        # Set the font size for the labels and title
+        leg.set_title('Cluster', prop={'size': 13})  # Set font size for the legend title
+        for text in leg.get_texts():
+            text.set_fontsize('6')  # Set font size for the labels
+
+        # Embedding the plot in Tkinter
+        canvas = FigureCanvasTkAgg(figure, master=results_window)
+        canvas.draw()
+        canvas.get_tk_widget().pack()
+        
+    else:
+        messagebox.showerror("Error", f"Failed to retrieve clustering results: {response.text}")
+
+def open_correlation_analysis_window():
+    correlation_window = tk.Toplevel(root)
+    correlation_window.title("Correlation Analysis")
+
+    # List of features available for correlation
+    features = ['totalFare', 'seatsRemaining', 'baseFare', 'travelDuration']  # Add other relevant features
+
+    # Setup dropdowns for selecting features to correlate
+    ttk.Label(correlation_window, text="Select Feature 1:").grid(row=0, column=0, padx=10, pady=5)
+    feature1_var = tk.StringVar()
+    feature1_dropdown = ttk.Combobox(correlation_window, textvariable=feature1_var, values=features, state="readonly")
+    feature1_dropdown.grid(row=0, column=1, padx=10, pady=5)
+    feature1_dropdown.set('totalFare')  # Default value
+
+    ttk.Label(correlation_window, text="Select Feature 2:").grid(row=1, column=0, padx=10, pady=5)
+    feature2_var = tk.StringVar()
+    feature2_dropdown = ttk.Combobox(correlation_window, textvariable=feature2_var, values=features, state="readonly")
+    feature2_dropdown.grid(row=1, column=1, padx=10, pady=5)
+    feature2_dropdown.set('seatsRemaining')  # Default value
+
+    # Button to submit and fetch correlation
+    submit_button = ttk.Button(correlation_window, text="Analyze Correlation",
+                               command=lambda: fetch_and_display_correlation(feature1_var.get(), feature2_var.get()))
+    submit_button.grid(row=2, column=0, columnspan=2, pady=10)
+
+def fetch_and_display_correlation(feature1, feature2):
+    url = f"http://127.0.0.1:5000/correlations?feature1={feature1}&feature2={feature2}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        correlation_data = response.json()
+        print(correlation_data)  # This print is useful for debugging and can be removed in production.
+
+        df_corr = pd.DataFrame(correlation_data)
+
+        # Create a heatmap
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(df_corr, annot=True, cmap='coolwarm', fmt=".2f")
+        plt.title(f'Correlation between {feature1} and {feature2}')  # Dynamic title based on features
+        plt.show()
+    else:
+        messagebox.showerror("Error", "Failed to fetch correlation data")
 
 tree.bind('<<TreeviewSelect>>', on_route_select)
 
@@ -394,5 +595,13 @@ preferences_menu = tk.Menu(menu_bar, tearoff=0)
 menu_bar.add_cascade(label="Preferences", menu=preferences_menu)
 preferences_menu.add_command(
     label="Edit Preferences", command=open_preferences_window)
+
+# Menu item for Data Mining
+data_mining_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Data Mining", menu=data_mining_menu)
+data_mining_menu.add_command(label="Analyze Price Trends", command=open_analyze_price_trends_window)
+data_mining_menu.add_command(label="Cluster Flights", command=open_cluster_flights_window)
+data_mining_menu.add_command(label="Correlation Analysis", command=open_correlation_analysis_window)
+
 
 root.mainloop()
