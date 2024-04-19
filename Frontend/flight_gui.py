@@ -15,7 +15,11 @@ import itertools
 import sys
 sys.path.append('../Backend')  # Adds the Backend folder to the system path
 
+global flight_listbox
 flight_listbox = None
+
+global current_user_id
+current_user_id = None
 
 # Create the main window
 root = tk.Tk()
@@ -221,11 +225,11 @@ def parse_datetime(raw_datetime):
     return datetime_obj.strftime("%B %d, %Y, %I:%M %p")
 
 
-def save_itinerary_details(flight_id, user_id):
+def save_itinerary_details(leg_id, user_id):
     url = 'http://127.0.0.1:5000/add_to_itinerary'
     itinerary_data = {
         'userID': user_id,
-        'flightID': flight_id
+        'legID': leg_id
     }
 
     try:
@@ -288,7 +292,7 @@ def display_flight_details(source_iata, destination_iata, airline_name, is_non_s
                     f"Cabin: {flight['segmentsCabinCode']}"
                 )
 
-                flight_id = flight['legId']
+                flight_id = flight['legID']
 
                 # Store display text, flight ID in the Listbox
                 flight_listbox.insert(tk.END, (display_text, flight_id))
@@ -299,6 +303,7 @@ def display_flight_details(source_iata, destination_iata, airline_name, is_non_s
         right_click_menu = tk.Menu(flights_window, tearoff=0)
         right_click_menu.add_command(
             label="Add to Itinerary", command=lambda: add_to_itinerary(flight_listbox.curselection()))
+        right_click_menu.add_command(label="Predict Delay", command=lambda: predict_delay(flight_id))
 
         def on_right_click(event):
             try:
@@ -306,8 +311,8 @@ def display_flight_details(source_iata, destination_iata, airline_name, is_non_s
                 flight_listbox.selection_clear(0, tk.END)
                 flight_listbox.selection_set(selection_index)
                 flight_listbox.activate(selection_index)
-                selected_item = flight_listbox.get(selection_index)
-                display_text, flight_id = selected_item  # Unpack the tuple
+                # selected_item = flight_listbox.get(selection_index)
+                # display_text, flight_id = selected_item  # Unpack the tuple
                 right_click_menu.post(event.x_root, event.y_root)
             except Exception as e:
                 print(f"Error: {e}")
@@ -321,6 +326,13 @@ def display_flight_details(source_iata, destination_iata, airline_name, is_non_s
 
 
 def on_route_select(event):
+    # Check if current_user_id is defined and has a meaningful value
+    global current_user_id
+    if current_user_id is None or current_user_id == '':
+        messagebox.showinfo("Login Required", "Please log in to see flight details")
+        
+        return
+    
     if tree.selection():
         selected_item = tree.selection()[0]
         route_details = tree.item(selected_item, 'values')
@@ -575,6 +587,19 @@ def fetch_and_display_correlation(feature1, feature2):
         plt.show()
     else:
         messagebox.showerror("Error", "Failed to fetch correlation data")
+
+def predict_delay(flight_id):
+    try:
+        response = requests.get(f'http://127.0.0.1:5000/predict_delay/{flight_id}')
+        
+        if response.status_code == 200:
+            result = response.json()
+            messagebox.showinfo("Prediction Result", f"Delay Prediction: {'Delayed' if result['delayed'] else 'On Time'}")
+        else:
+            messagebox.showerror("Prediction Error", f"Failed to predict the delay: {response.text}")
+    except requests.exceptions.RequestException as e:
+        messagebox.showerror("Error", str(e))
+
 
 tree.bind('<<TreeviewSelect>>', on_route_select)
 

@@ -26,6 +26,41 @@ engine = create_engine(connection_string)
 # ------------------- Query functions -----------------------
 # -----------------------------------------------------------
 
+def get_flight_delay_data():
+    sql = """
+        SELECT FlightDate, DepTime, ArrTime, DepDelayMinutes, ArrDelayMinutes, IATA_Code_Operating_Airline, Origin, Dest
+        FROM Delays
+        WHERE DepDelayMinutes IS NOT NULL AND ArrDelayMinutes IS NOT NULL
+    """
+    try:
+        with engine.connect() as connection:
+            df = pd.read_sql(sql, connection)
+
+            return df
+    except Exception as e:
+        print(f"Error fetching flight delay data: {str(e)}")
+        
+        return pd.DataFrame()
+
+def get_predict_flight(legID):
+    from data_preparation import preprocess_data
+
+    # This function retrieves flight data needed for prediction based on legID
+    sql_query = text("""SELECT flightDate, segmentsDepartureTimeRaw, segmentsArrivalTimeRaw, segmentsAirlineCode, startingAirport, destinationAirport
+                     FROM Legs WHERE legID = :legID""")
+
+    try:
+        with engine.connect() as connection:
+            result = pd.read_sql(sql_query, connection, params={'legID': legID})
+
+            processed_data = preprocess_data(result, True)
+
+            return processed_data
+    except Exception as e:
+        print(f"Error fetching prediction data: {str(e)}")
+        return None
+
+
 def get_flight_data_for_clustering(features, selected_view):
     sql = f"SELECT {', '.join(features)} FROM {selected_view}"
 
@@ -181,7 +216,7 @@ def query_routes(source_iata, destination_iata):
     """
     query = f"""
         SELECT a1.iata AS sourceIATA, a2.iata AS destinationIATA, al.airlineName
-        FROM HasRoutes hr
+        FROM AirlineRoutes hr
         JOIN Airports a1 ON hr.sourceAirportID = a1.airportID
         JOIN Airports a2 ON hr.destinationAirportID = a2.airportID
         JOIN Airline al ON hr.airlineID = al.airlineID
@@ -198,7 +233,7 @@ def query_airline_routes(airline_name):
     """
     query = f"""
         SELECT al.airlineName, a1.iata AS sourceIATA, a2.iata AS destinationIATA
-        FROM HasRoutes hr
+        FROM AirlineRoutes hr
         JOIN Airports a1 ON hr.sourceAirportID = a1.airportID
         JOIN Airports a2 ON hr.destinationAirportID = a2.airportID
         JOIN Airline al ON hr.airlineID = al.airlineID
@@ -215,7 +250,7 @@ def query_routes_by_countries(source_country, destination_country):
     """
     query = f"""
         SELECT c1.country AS sourceCountry, c2.country AS destinationCountry, a1.iata AS sourceIATA, a2.iata AS destinationIATA, al.airlineName
-        FROM HasRoutes hr
+        FROM AirlineRoutes hr
         JOIN Airports a1 ON hr.sourceAirportID = a1.airportID
         JOIN Airports a2 ON hr.destinationAirportID = a2.airportID
         JOIN Cities c1 ON a1.cityID = c1.cityID
@@ -243,7 +278,7 @@ def query_by_country(country_name):
             c2.cityName AS destinationCityName
         FROM Airports a1
         JOIN Cities c1 ON a1.cityID = c1.cityID
-        JOIN HasRoutes hr ON a1.airportID = hr.sourceAirportID
+        JOIN AirlineRoutes hr ON a1.airportID = hr.sourceAirportID
         JOIN Airports a2 ON hr.destinationAirportID = a2.airportID
         JOIN Cities c2 ON a2.cityID = c2.cityID
         WHERE c1.country = '{country_name}';
@@ -274,7 +309,7 @@ def query_flight_details(source_iata, destination_iata, airline_name, is_non_sto
             # Base SQL query
             sql_query = """
                 SELECT
-                    legId, startingAirport, destinationAirport, flightDate,
+                    legID, startingAirport, destinationAirport, flightDate,
                     travelDuration, elapsedDays, isBasicEconomy, isRefundable,
                     isNonStop, baseFare, totalFare, seatsRemaining,
                     segmentsDepartureTimeRaw, segmentsArrivalTimeRaw,
@@ -349,7 +384,7 @@ def query_flight_details(source_iata, destination_iata, airline_name, is_non_sto
 
             # Prepare data for return
             column_names = [
-                'legId', 'startingAirport', 'destinationAirport', 'flightDate',
+                'legID', 'startingAirport', 'destinationAirport', 'flightDate',
                 'travelDuration', 'elapsedDays', 'isBasicEconomy', 'isRefundable',
                 'isNonStop', 'baseFare', 'totalFare', 'seatsRemaining',
                 'segmentsDepartureTimeRaw', 'segmentsArrivalTimeRaw',
@@ -366,10 +401,10 @@ def query_flight_details(source_iata, destination_iata, airline_name, is_non_sto
 
 
 def add_itinerary_to_db(itinerary_data):
-    # Fetch flight details based on flightID
+    # Fetch flight details based on legID
     flight_query = text("""
         SELECT
-            legId, startingAirport, destinationAirport, flightDate,
+            legID, startingAirport, destinationAirport, flightDate,
             travelDuration, elapsedDays, isBasicEconomy, isRefundable,
             isNonStop, baseFare, totalFare, seatsRemaining,
             segmentsDepartureTimeRaw, segmentsArrivalTimeRaw,
@@ -377,31 +412,61 @@ def add_itinerary_to_db(itinerary_data):
             segmentsAirlineName, segmentsAirlineCode, segmentsEquipmentDescription,
             segmentsDurationInSeconds, segmentsCabinCode
         FROM Legs
-        WHERE legId = :flightID
+        WHERE legID = :legID
     """)
 
     try:
         with engine.begin() as connection:
             flight_details = connection.execute(
-                flight_query, {'flightID': itinerary_data['flightID']}).fetchone()
+                flight_query, {'legID': itinerary_data['legID']}).fetchone()
 
             if flight_details:
-                # Access elements by their indices
-                # index for segmentsCabinCode
                 segmentsCabinCode = flight_details[20]
-                # index for segmentsAirlineName
                 airlineName = flight_details[16]
+                sourceAirport = flight_details[1]
+                destinationAirport = flight_details[2]
 
                 # Insert itinerary with essential details fetched from the flight details
                 itinerary_sql = text("""
-                    INSERT INTO Itineraries (userID, flightID, flyingClass, airlineName)
-                    VALUES (:userID, :flightID, :flyingClass, :airlineName)
+                    INSERT INTO Itineraries (userID, legID, flyingClass, airlineName, sourceAirport, destinationAirport)
+                    VALUES (:userID, :legID, :flyingClass, :airlineName, :sourceAirport, :destinationAirport)
                 """)
                 itinerary_data.update({
                     'flyingClass': segmentsCabinCode,
                     'airlineName': airlineName,
+                    'sourceAirport': sourceAirport,
+                    'destinationAirport': destinationAirport,
                 })
                 connection.execute(itinerary_sql, itinerary_data)
+
+                # Calculate layover time if applicable
+                # Fetch the latest leg's arrival time for the same user
+                latest_leg_query = text("""
+                    SELECT segmentsArrivalTimeRaw
+                    FROM Itineraries
+                    JOIN Legs ON Itineraries.legID = Legs.legID
+                    WHERE userID = :userID AND Itineraries.legID != :currentLegID
+                    ORDER BY segmentsArrivalTimeRaw DESC
+                    LIMIT 1
+                """)
+                latest_leg = connection.execute(latest_leg_query, {
+                    'userID': itinerary_data['userID'],
+                    'currentLegID': itinerary_data['legID']
+                }).fetchone()
+
+                if latest_leg:
+                    # Calculate layover time
+                    layover_time = calculate_layover_time(latest_leg[0], flight_details[13])  # segmentsArrivalTimeRaw
+                    # Insert layover time into LayoverTimes table
+                    layover_sql = text("""
+                        INSERT INTO LayoverTimes (userID, legID, LayoverTime)
+                        VALUES (:userID, :legID, :LayoverTime)
+                    """)
+                    connection.execute(layover_sql, {
+                        'userID': itinerary_data['userID'],
+                        'legID': flight_details[0],  # legID
+                        'LayoverTime': layover_time
+                    })
 
                 return True
             else:
@@ -448,3 +513,11 @@ def iso8601_duration_to_minutes(duration_str):
     total_minutes = hours * 60 + minutes
     
     return total_minutes
+
+def calculate_layover_time(previous_arrival, current_departure):
+    from datetime import datetime
+    fmt = '%Y-%m-%dT%H:%M:%S.%f%z'  # Adjust this format to match your timestamp format
+    previous_arrival_dt = datetime.strptime(previous_arrival, fmt)
+    current_departure_dt = datetime.strptime(current_departure, fmt)
+
+    return int((current_departure_dt - previous_arrival_dt).total_seconds() / 60)  # Layover time in minutes

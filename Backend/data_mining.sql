@@ -4,7 +4,7 @@ DROP VIEW IF EXISTS vFlightPrices;
 -- -------- All flights --------
 CREATE VIEW vFlightPrices AS
 SELECT 
-  s.legId, 
+  s.legID, 
   a1.airportName AS DepartureAirport, 
   a2.airportName AS ArrivalAirport,
   s.flightDate, 
@@ -64,4 +64,8 @@ FROM
   Legs s
 WHERE 
   s.isNonStop = 1;
+  
+  -- ------- Delays Data ----------
+  DROP VIEW IF EXISTS vFlightDelays;
+
   

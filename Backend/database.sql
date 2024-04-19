@@ -1,5 +1,5 @@
 -- Drop tables if they exist
-DROP TABLE IF EXISTS LegPassengers, LayoverTimes, Itineraries, Legs,
+DROP TABLE IF EXISTS Delays, LegPassengers, LayoverTimes, Itineraries, Legs,
 LoyaltyProgram, Preferences, ConnectingAirports, AirlineRoutes, BelongsTo, Airports, Airplanes, Cities, Users, Airline;
 
 -- Users table
@@ -8,10 +8,10 @@ CREATE TABLE Users (
   fullName VARCHAR(128) NOT NULL, -- 128 characters seems more than reasonable for a full name
   phoneNumber VARCHAR(25) NOT NULL UNIQUE, -- Could allow multiple phone numbers; kept as 1 for project scope
   addressFirstLine VARCHAR(64) NOT NULL,
-  addressLastLine VARCHAR(64) NOT NULL,
+  addressLastLine VARCHAR(64),
   addressPostcode VARCHAR(10) NOT NULL,
   billingFirstLine VARCHAR(64) NOT NULL,
-  billingLastLine VARCHAR(64) NOT NULL,
+  billingLastLine VARCHAR(64),
   billingPostcode VARCHAR(10) NOT NULL,
   birthDate DATE NOT NULL,
   gender ENUM('M', 'F', 'NB') NOT NULL,
@@ -181,10 +181,12 @@ CREATE TABLE LegPassengers (
 CREATE TABLE Itineraries (
   userID int,
   legID VARCHAR(35),
-  flyingClass ENUM('coach', 'premium coach', 'business', 'first') NOT NULL,
   airlineName VARCHAR(128) NOT NULL, -- Should be airlineID, but airline IATA is also unique and saves us work
+  flyingClass ENUM('coach', 'premium coach', 'business', 'first') NOT NULL,
   sourceAirport VARCHAR(5),
   destinationAirport VARCHAR(5),
+  departureTime TIME,
+  arrivalTime TIME,
 
   PRIMARY KEY (userID, legID),
 
@@ -195,6 +197,7 @@ CREATE TABLE Itineraries (
   FOREIGN KEY (destinationAirport) REFERENCES Airports (iata)
 );
 
+-- LayoverTimes table
 CREATE TABLE LayoverTimes (
   userID int,
   legID VARCHAR(35),
@@ -296,6 +299,31 @@ BEGIN
   ELSE
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid birth date';
   END IF;
+END$$
+
+CREATE TRIGGER CheckFlightChronology
+BEFORE INSERT ON Itineraries
+FOR EACH ROW
+BEGIN
+    DECLARE lastArrival DATETIME;
+    DECLARE newDeparture DATETIME;
+
+    -- Get the departure time of the new leg from the Legs table
+    SELECT segmentsDepartureTimeRaw INTO newDeparture
+    FROM Legs
+    WHERE legID = NEW.legID;
+
+    -- Get the latest arrival time for the user
+    SELECT MAX(segmentsArrivalTimeRaw) INTO lastArrival
+    FROM Itineraries
+    JOIN Legs ON Itineraries.legID = Legs.legID
+    WHERE userID = NEW.userID AND Itineraries.legID != NEW.legID;
+
+    -- If there's a last arrival time and the new leg's departure is earlier, signal an error
+    IF lastArrival IS NOT NULL AND newDeparture < lastArrival THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot add a flight that departs before the last added flight arrives.';
+    END IF;
 END$$
 
 DELIMITER ;
@@ -525,7 +553,7 @@ IGNORE 1 LINES
     @WheelsOn,
     @TaxiIn,
     @dummy, -- CRSArrTime
-    ArrTime,
+    @ArrTime,
     @ArrDelay,
     @ArrDelayMinutes,
     @dummy, -- ArrDel15

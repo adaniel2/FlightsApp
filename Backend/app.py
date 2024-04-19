@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from db import query_routes, query_airline_routes, query_routes_by_countries, query_by_country
 from db import create_user, add_preferences_to_db, query_flight_details, get_user_preferences, add_itinerary_to_db
 from db import get_analyze_price_trends, get_flight_data_for_clustering, get_data_for_apriori, get_data_for_correlation
+from db import get_predict_flight
 import json
 import urllib.parse
 from sklearn.cluster import KMeans
@@ -10,6 +11,7 @@ from mlxtend.frequent_patterns import apriori, association_rules
 from mlxtend.preprocessing import TransactionEncoder
 from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import RandomForestClassifier
+import joblib
 
 app = Flask(__name__)
 
@@ -91,8 +93,24 @@ def cross_validate_model():
     else:
         return jsonify({'error': 'Failed to fetch data or data is empty'}), 500
 
-# --------- Routes ---------
-# --------------------------
+# --------- Classification ---------
+# ----------------------------------
+model = joblib.load('flight_delay_predictor.joblib')
+
+@app.route('/predict_delay/<legID>', methods=['GET'])
+def predict_delay(legID):
+    # Fetch processed flight data
+    processed_data = get_predict_flight(legID)
+    
+    if processed_data is not None:
+        prediction = model.predict([processed_data])
+        
+        return jsonify({'delayed': bool(prediction[0])})
+    else:
+        return jsonify({'error': 'Failed to fetch or process flight data'}), 500
+
+# --------- Other Routes ---------
+# --------------------------------
 
 
 @app.route('/add_to_itinerary', methods=['POST'])
