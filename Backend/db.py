@@ -43,7 +43,7 @@ def get_flight_delay_data():
         return pd.DataFrame()
 
 def get_predict_flight(legID):
-    from data_preparation import preprocess_data
+    from data_preparation import preprocess_data_predict
 
     # This function retrieves flight data needed for prediction based on legID
     sql_query = text("""SELECT flightDate, segmentsDepartureTimeRaw, segmentsArrivalTimeRaw, segmentsAirlineCode, startingAirport, destinationAirport
@@ -52,8 +52,11 @@ def get_predict_flight(legID):
     try:
         with engine.connect() as connection:
             result = pd.read_sql(sql_query, connection, params={'legID': legID})
+            print(result)
+            print(type(result['segmentsDepartureTimeRaw'][0]))
 
-            processed_data = preprocess_data(result, True)
+            processed_data = preprocess_data_predict(result)
+            print(processed_data)
 
             return processed_data
     except Exception as e:

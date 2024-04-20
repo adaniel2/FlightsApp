@@ -101,9 +101,11 @@ model = joblib.load('flight_delay_predictor.joblib')
 def predict_delay(legID):
     # Fetch processed flight data
     processed_data = get_predict_flight(legID)
+    processed_data = processed_data.drop(['FlightDate'], axis=1)
+    print('processed_data',processed_data)
     
     if processed_data is not None:
-        prediction = model.predict([processed_data])
+        prediction = model.predict(processed_data)
         
         return jsonify({'delayed': bool(prediction[0])})
     else:
